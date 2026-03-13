@@ -1,6 +1,6 @@
 const express = require('express');
 const sequelize = require('./config/database');
-// const routesUsers = require('./routes');
+const routesUsers = require('./routes/userRouter');
 
 const app = express();
 app.use(express.json());
@@ -23,7 +23,7 @@ sequelize.sync({ force: false })
     console.error('Error al sincronizar:', error);
   });
 
-// app.use('/users', routesUsers);
+app.use('/users', routesUsers);
 
 // app.get("/status", function(req, res) {
 //   res.json('hola2') //Probar Api
