@@ -108,4 +108,4 @@ Este proyecto nace como una iniciativa **oficial de la institución**, diseñada
 
 > Michael [@stevenbisbi](https://github.com/stevenbisbi) <br/> 
 > Kevin Manrique Sanchez <br/> 
-> Juan Reina
+> [Juan Reina](https://github.com/juanreina19) <br/> 
