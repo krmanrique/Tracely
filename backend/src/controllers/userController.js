@@ -32,15 +32,15 @@ const userController = {
 
   loginUser: async(req, res) => {
     try {
-      const { email, password } = req.body;
+      const { id, password } = req.body;
       
-      const user = await Users.scope('withPassword').findOne({ where: { email } });
+      const user = await Users.scope('withPassword').findOne({ where: { id } });
 
       if (!user) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
 
-      const validPassword = await bcrypt.compare(password, user.contraseña_hash);
+      const validPassword = await bcrypt.compare(password, user.contrasena_hash);
       if(!validPassword) {
         return res.status(401).json({ error: 'Contraseña incorrecta' });
       }
@@ -56,7 +56,8 @@ const userController = {
         user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol }
       });
 
-    } catch (err) {
+    } catch (error) {
+      console.log(error);
       res.status(500).json({ error: 'Error en el login' });
     }
   },
