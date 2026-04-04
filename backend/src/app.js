@@ -1,6 +1,7 @@
 const express = require('express');
 const sequelize = require('./config/database');
 const routesUsers = require('./modules/users/userRouter');
+const routesCareer = require('./modules/careers/careerRouter');
 
 const app = express();
 app.use(express.json());
