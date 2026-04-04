@@ -28,6 +28,11 @@ const Users = sequelize.define('users', {
     allowNull: false,
     defaultValue: 'estudiante',
   },
+  carrera_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'careers', key: 'id' },
+  },
   fecha_registro: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
