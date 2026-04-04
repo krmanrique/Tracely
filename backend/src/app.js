@@ -1,6 +1,6 @@
 const express = require('express');
 const sequelize = require('./config/database');
-const routesUsers = require('./routes/userRouter');
+const routesUsers = require('./modules/users/userRouter');
 
 const app = express();
 app.use(express.json());
