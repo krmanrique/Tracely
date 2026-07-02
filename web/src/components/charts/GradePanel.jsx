@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { gradeColor } from "../utils/helpers";
+import { gradeColor } from "../../utils/helpers";
 
 const TIPOS = ["Taller", "Quiz", "Parcial", "Proyecto", "Examen", "Oral", "Laboratorio"];
 

@@ -1,6 +1,6 @@
-import { semestres } from "../data/mockData";
-import logo from "../assets/unicatolica-svg.svg";
-import tracelyLogo from "../assets/logo.svg"
+import { semestres } from "../../data/mockData";
+import logo from "../../assets/unicatolica-svg.svg";
+import tracelyLogo from "../../assets/logo.svg"
 
 export default function Topbar({ semestre, setSemestre, pageTitle, userName }) {
   return (

@@ -1,5 +1,5 @@
-import RingChart from "../../components/RingChart";
-import MiniBarChart from "../../components/MiniBarChart";
+import RingChart from "../../components/charts/RingChart";
+import MiniBarChart from "../../components/charts/MiniBarChart";
 import { gradeColor, attColor, courseOverall } from "../../utils/helpers";
 
 export default function StudentDashboard({ semData, onNavigate, onNotifClick }) {

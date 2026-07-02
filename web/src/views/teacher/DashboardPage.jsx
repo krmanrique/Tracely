@@ -1,8 +1,23 @@
-import { useState } from "react";
-import RingChart from "../../components/RingChart";
-import GradePanel from "../../components/GradePanel";
+import { useState, useEffect } from "react";
+import RingChart from "../../components/charts/RingChart";
+import GradePanel from "../../components/charts/GradePanel";
 import { attColor } from "../../utils/helpers";
 
+// ── Toast ─────────────────────────────────────────────────────
+function Toast({ message, type, onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  return (
+    <div className={`toast ${type}`}>
+      {type === "success" ? "✓" : "✕"} {message}
+    </div>
+  );
+}
+
+// ── Dashboard Docente ─────────────────────────────────────────
 export default function TeacherDashboard({ semData }) {
   if (!semData || semData.courses.length === 0)
     return (
@@ -13,20 +28,48 @@ export default function TeacherDashboard({ semData }) {
     );
 
   const { courses, schedule } = semData;
+
   const [activeCourse, setActiveCourse] = useState(courses[0]);
   const [attendance, setAttendance] = useState(
     Object.fromEntries(courses[0].todayAttendance.map((a) => [a.studentId, a.present]))
   );
   const [gradePanel, setGradePanel] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
 
   const toggleAtt = (id) => setAttendance((p) => ({ ...p, [id]: !p[id] }));
+
   const present = Object.values(attendance).filter(Boolean).length;
   const total   = activeCourse.students.length;
   const atRisk  = activeCourse.students.filter((s) => s.status !== "active");
 
+  const handleSaveAttendance = async () => {
+    setSaving(true);
+    // Simula llamada al backend (cuando esté listo, reemplazar aquí)
+    await new Promise((r) => setTimeout(r, 900));
+    setSaving(false);
+    setToast({
+      message: `Asistencia de ${activeCourse.name} guardada correctamente`,
+      type: "success",
+    });
+  };
+
+  const handleCourseChange = (c) => {
+    setActiveCourse(c);
+    setAttendance(Object.fromEntries(c.todayAttendance.map((a) => [a.studentId, a.present])));
+  };
+
   return (
     <div>
       {gradePanel && <GradePanel course={gradePanel} onClose={() => setGradePanel(null)} />}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
       {/* Stats */}
       <div className="grid grid-4" style={{ marginBottom: 18 }}>
@@ -58,8 +101,9 @@ export default function TeacherDashboard({ semData }) {
         </div>
       </div>
 
-      {/* Charts row */}
+      {/* Fila de gráficas */}
       <div className="grid grid-3" style={{ marginBottom: 18 }}>
+        {/* Ring asistencia */}
         <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 20, flexDirection: "column" }}>
           <RingChart
             value={present} max={total || 1} size={88} color="var(--green)"
@@ -72,6 +116,7 @@ export default function TeacherDashboard({ semData }) {
           </div>
         </div>
 
+        {/* Mis cursos */}
         <div className="card" style={{ padding: 20 }}>
           <div className="section-title" style={{ marginBottom: 12 }}>Mis Cursos</div>
           {courses.map((c) => (
@@ -86,6 +131,7 @@ export default function TeacherDashboard({ semData }) {
           ))}
         </div>
 
+        {/* Horario */}
         <div className="card" style={{ padding: 20 }}>
           <div className="section-title" style={{ marginBottom: 12 }}>Horario</div>
           {schedule.map((s, i) => (
@@ -103,7 +149,7 @@ export default function TeacherDashboard({ semData }) {
         </div>
       </div>
 
-      {/* Attendance table */}
+      {/* Tabla de asistencia */}
       <div className="card" style={{ padding: 22 }}>
         <div className="section-header">
           <div>
@@ -113,20 +159,33 @@ export default function TeacherDashboard({ semData }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setGradePanel(activeCourse)}>📝 Ingresar Notas</button>
-            <button className="btn btn-primary btn-sm">💾 Guardar Asistencia</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setGradePanel(activeCourse)}>
+              📝 Ingresar Notas
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSaveAttendance}
+              disabled={saving}
+              style={{ minWidth: 140 }}
+            >
+              {saving ? (
+                <><span style={{
+                  width: 12, height: 12, border: "2px solid rgba(255,255,255,0.35)",
+                  borderTopColor: "white", borderRadius: "50%", display: "inline-block",
+                  animation: "spin 0.7s linear infinite"
+                }} /> Guardando...</>
+              ) : "💾 Guardar Asistencia"}
+            </button>
           </div>
         </div>
 
+        {/* Tabs de cursos */}
         <div className="tabs" style={{ marginBottom: 16 }}>
           {courses.map((c) => (
             <button
               key={c.id}
               className={`tab ${activeCourse.id === c.id ? "active" : ""}`}
-              onClick={() => {
-                setActiveCourse(c);
-                setAttendance(Object.fromEntries(c.todayAttendance.map((a) => [a.studentId, a.present])));
-              }}
+              onClick={() => handleCourseChange(c)}
             >
               {c.code} {c.group}
             </button>
@@ -136,52 +195,71 @@ export default function TeacherDashboard({ semData }) {
         {activeCourse.students.length === 0 ? (
           <div className="empty"><div className="empty-icon">👥</div>Sin estudiantes en este grupo</div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Asistencia</th>
-                <th>Estado</th>
-                <th>Hoy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeCourse.students.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: "50%",
-                        background: "var(--bg3)", border: "1.5px solid var(--border2)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 9, fontWeight: 700, color: "var(--text2)",
-                      }}>
-                        {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 500, fontSize: 13 }}>{s.name}</div>
-                        <div style={{ fontSize: 10, color: "var(--text3)" }}>{s.absences} inasistencias</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: 600, color: attColor(s.attendance) }}>{s.attendance}%</td>
-                  <td>
-                    <span className={`badge badge-${s.status}`}>
-                      {s.status === "active" ? "OK" : s.status === "warning" ? "Aviso" : s.status === "risk" ? "Riesgo" : "Crítico"}
-                    </span>
-                  </td>
-                  <td>
-                    <div
-                      className={`att-chip ${attendance[s.id] === undefined ? "unset" : attendance[s.id] ? "present" : "absent"}`}
-                      onClick={() => toggleAtt(s.id)}
-                    >
-                      {attendance[s.id] === undefined ? "?" : attendance[s.id] ? "✓" : "✕"}
-                    </div>
-                  </td>
+          <>
+            {/* Resumen rápido */}
+            <div style={{ display: "flex", gap: 16, marginBottom: 14, padding: "10px 14px", background: "var(--bg3)", borderRadius: 10 }}>
+              <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
+                <strong style={{ color: "var(--green)" }}>{present}</strong> presentes
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
+                <strong style={{ color: "var(--red)" }}>{total - present}</strong> ausentes
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--text2)" }}>
+                <strong>{total}</strong> total
+              </span>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text3)" }}>
+                Toca ✓/✕ para cambiar asistencia
+              </span>
+            </div>
+
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Estudiante</th>
+                  <th>Asistencia %</th>
+                  <th>Estado</th>
+                  <th>Hoy</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {activeCourse.students.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: "50%",
+                          background: "var(--bg3)", border: "1.5px solid var(--border2)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 10, fontWeight: 700, color: "var(--text2)", flexShrink: 0,
+                        }}>
+                          {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 500, fontSize: 13 }}>{s.name}</div>
+                          <div style={{ fontSize: 10, color: "var(--text3)" }}>{s.absences} inasistencias</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600, color: attColor(s.attendance) }}>{s.attendance}%</td>
+                    <td>
+                      <span className={`badge badge-${s.status}`}>
+                        {s.status === "active" ? "OK" : s.status === "warning" ? "Aviso" : s.status === "risk" ? "Riesgo" : "Crítico"}
+                      </span>
+                    </td>
+                    <td>
+                      <div
+                        className={`att-chip ${attendance[s.id] === undefined ? "unset" : attendance[s.id] ? "present" : "absent"}`}
+                        onClick={() => toggleAtt(s.id)}
+                        title="Click para cambiar"
+                      >
+                        {attendance[s.id] === undefined ? "?" : attendance[s.id] ? "✓" : "✕"}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </div>
