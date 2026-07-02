@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # ── API Node.js ─────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tracely_api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db          # nombre del servicio de base de datos
+      DB_PORT: 5432
+      DB_NAME: tracely
+      DB_USER: postgres
+      DB_PASS: tracely_pass
+      JWT_SECRET: tracely_super_secret_2025_cambia_esto
+      JWT_EXPIRES_IN: 8h
+      CORS_ORIGIN: http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL ───────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: tracely_db
+    ports:
+      - "5432:5432"          # expuesto para conectar con pgAdmin si quieres
+    environment:
+      POSTGRES_DB: tracely
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tracely_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/config/init.sql:/docker-entrypoint-initdb.d/init.sql  # seed inicial
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tracely"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local

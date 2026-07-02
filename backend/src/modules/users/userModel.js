@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../../config/database');
 
 const Users = sequelize.define('users', {
 
@@ -27,6 +27,11 @@ const Users = sequelize.define('users', {
     type: DataTypes.ENUM('admin', 'profesor', 'estudiante'),
     allowNull: false,
     defaultValue: 'estudiante',
+  },
+  carrera_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'careers', key: 'id' },
   },
   fecha_registro: {
     type: DataTypes.DATE,
