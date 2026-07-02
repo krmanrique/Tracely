@@ -1,12 +1,18 @@
 const express = require('express');
 const userController = require('./userController');
-const route = express.Router();
+const { authenticate, authorize } = require('../../middlewares/auth');
 
-route.post('/register', userController.registerUser);
-route.post('/login', userController.loginUser);
-route.get('/', userController.getAllUsers);
-route.get('/:id', userController.getOneUser);
-route.put('/:id', userController.updateUser);
-route.delete('/:id', userController.deleteUser);
+const router = express.Router();
 
-module.exports = route;
+// Públicas
+router.post('/register', userController.registerUser);
+router.post('/login',    userController.loginUser);
+
+// Autenticadas
+router.get('/me',   authenticate, userController.getMe);
+router.get('/',     authenticate, authorize('admin'), userController.getAllUsers);
+router.get('/:id',  authenticate, userController.getOneUser);
+router.put('/:id',  authenticate, userController.updateUser);
+router.delete('/:id', authenticate, authorize('admin'), userController.deleteUser);
+
+module.exports = router;
