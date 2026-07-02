@@ -1,111 +1,135 @@
-# 📊 SeguimientoAcadémico Tracely
-> Sistema de seguimiento y alertas académicas para estudiantes y docentes
+# Tracely — Frontend
+
+Interfaz web del Sistema de Seguimiento Académico Tracely.  
+Desarrollado con React 19 + Vite + CSS puro.
 
 ---
 
-## 🎯 ¿Qué es?
+## Requisitos previos
 
-**SeguimientoAcadémico** es una plataforma web institucional que centraliza el seguimiento del rendimiento académico de los estudiantes, generando alertas tempranas y visualizaciones claras del estado académico — sin reemplazar Banner8 ni Moodle, sino complementándolos donde fallan.
+- [Node.js](https://nodejs.org/) v18 o superior
 
----
-
-## 🚨 El problema que resuelve
-
-Las herramientas actuales no ofrecen:
-
-- Una vista unificada y clara del estado académico del estudiante
-- Alertas automáticas cuando un estudiante está en riesgo
-- Visibilidad temprana de faltas acumuladas
-- Un simulador para proyectar notas finales
-- Un panel de riesgo académico grupal para docentes
-
-> *"El estudiante se entera que va mal cuando ya es tarde."*
+```bash
+node --version
+```
 
 ---
 
-## 👥 Usuarios
+## Instalación
 
-| Rol | Descripción |
+### 1. Clonar el repositorio
+```bash
+git clone <url-del-repo>
+cd web
+```
+
+### 2. Instalar dependencias
+```bash
+npm install
+```
+
+### 3. Configurar variables de entorno
+```bash
+cp .env.example .env
+```
+
+Contenido del `.env`:
+```
+VITE_API_URL=http://localhost:3000/api
+```
+
+> Mientras el backend no esté conectado, el frontend usa datos mock automáticamente.
+
+### 4. Levantar el proyecto
+```bash
+npm run dev
+```
+
+La app queda disponible en **http://localhost:5173**
+
+---
+
+## Credenciales de prueba (modo mock)
+
+| Rol | ID | Contraseña |
+|---|---|---|
+| Estudiante | `12345` | cualquiera |
+| Docente | `99999` | cualquiera |
+| Administrador | `00001` | cualquiera |
+
+Cuando el backend esté activo, usar las credenciales reales del seed.
+
+---
+
+## Scripts disponibles
+
+| Comando | Descripción |
 |---|---|
-| 🧑‍🎓 Estudiante | Consulta sus notas, asistencia y alertas personales |
-| 👩‍🏫 Docente | Sube notas, ve el estado del grupo y gestiona alertas |
+| `npm run dev` | Inicia el servidor de desarrollo |
+| `npm run build` | Genera el build de producción en `/dist` |
+| `npm run preview` | Previsualiza el build de producción |
 
 ---
 
-## ✨ Funcionalidades principales
-
-### Para estudiantes
-- 📈 Ver notas por materia y corte académico
-- 🔔 Alertas automáticas: riesgo de reprobación, exceso de faltas
-- 🧮 Simulador de notas — *¿cuánto necesito en el final para pasar?*
-- 📅 Calendario académico con parciales y entregas
-- 📊 Dashboard de rendimiento general con gráficas
-
-### Para docentes
-- 📤 Carga de notas mediante Excel (plantilla estandarizada)
-- 👁️ Vista del estado académico de todo el grupo
-- ⚠️ Identificación automática de estudiantes en riesgo
-- 🔔 Envío de alertas/notificaciones a estudiantes específicos
-
----
-
-## ⚙️ Flujo de datos
+## Estructura del proyecto
 
 ```
-Docente llena plantilla Excel
-        ↓
-Sube el archivo a la plataforma
-        ↓
-Sistema parsea y procesa las notas
-        ↓
-Se generan alertas automáticas
-        ↓
-Estudiante recibe notificación y puede ver su estado
+web/
+└── src/
+    ├── assets/          # Imágenes y recursos estáticos
+    ├── components/
+    │   ├── charts/      # Gráficas (RingChart, MiniBarChart, GradePanel)
+    │   ├── layout/      # MainLayout, Sidebar, Topbar
+    │   └── ui/          # Componentes reutilizables (Button, Card, Badge)
+    ├── context/
+    │   ├── AuthContext.jsx   # Sesión del usuario (persiste en localStorage)
+    │   └── AppContext.jsx    # Estado global (semestre activo, página)
+    ├── data/
+    │   └── mockData.js       # Datos de prueba (se reemplaza con API real)
+    ├── hooks/           # Hooks personalizados
+    ├── router/
+    │   └── AppRouter.jsx     # Rutas protegidas por rol
+    ├── services/
+    │   ├── authService.js    # Login/logout → aquí se conecta el backend
+    │   ├── gradesService.js  # Notas
+    │   └── attendanceService.js  # Asistencia
+    ├── styles/
+    │   ├── global.css        # Variables CSS y estilos base
+    │   └── auth.css          # Estilos de login y forgot password
+    ├── utils/
+    │   └── helpers.js        # Funciones de color y cálculo de promedios
+    └── views/
+        ├── auth/             # LoginView, ForgotPasswordPage
+        ├── admin/            # Dashboard del administrador
+        ├── student/          # Dashboard, Notas, Asistencia
+        ├── teacher/          # Dashboard del docente
+        └── shared/           # NotFoundPage
 ```
 
-> La plantilla estandarizada es provista por la plataforma, minimizando errores de formato y sin cambiar drásticamente el flujo de trabajo del docente.
+---
+
+## Roles del sistema
+
+| Rol | Acceso | Ruta |
+|---|---|---|
+| `student` | Dashboard, Notas, Asistencia | `/student/*` |
+| `teacher` | Dashboard, control de asistencia y notas | `/teacher/*` |
+| `admin` | Panel institucional completo | `/admin/*` |
+
+La sesión se guarda en `localStorage` con la clave `tracely_session` y persiste entre recargas.
 
 ---
 
-## 🗺️ Roadmap — MVP
+## Conectar con el backend
 
-- [x] Definición de requerimientos
-- [ ] Diseño de base de datos y roles
-- [ ] Módulo de autenticación (estudiante / docente)
-- [ ] Carga y parseo de Excel con notas
-- [ ] Dashboard de notas y asistencia
-- [ ] Motor de alertas automáticas
-- [ ] Simulador de notas
-- [ ] Panel grupal para docentes
-- [ ] Notificaciones (correo institucional)
+Cuando el backend esté listo, editar `src/services/authService.js` y descomentar las llamadas reales al API. El resto de la app no requiere cambios gracias al patrón de servicios aislados.
 
 ---
 
-## 🛠️ Stack tecnológico
+## Tecnologías
 
-> *(Por definir según decisiones del equipo)*
-
-**Frontend:** Web — accesible desde cualquier dispositivo y sistema operativo  
-**Backend:** Por definir  
-**Base de datos:** Por definir  
-**Integración:** Google Drive API / carga manual de Excel (.xlsx)
-
----
-
-## 🏫 Contexto institucional
-
-Este proyecto nace como una iniciativa **oficial de la institución**, diseñada para integrarse con los procesos existentes de Banner8 y Moodle sin generar carga operativa adicional significativa para docentes ni personal administrativo.
-
----
-
-## 📌 Estado del proyecto
-
-🟡 En fase de definición y diseño
-
----
-
-## 🤝 Equipo
-
-> Michael [@stevenbisbi](https://github.com/stevenbisbi) <br/> 
-> Kevin Manrique Sanchez <br/> 
-> [Juan Reina](https://github.com/juanreina19) <br/> 
+- **React 19** — interfaz de usuario
+- **Vite 7** — bundler y servidor de desarrollo
+- **React Router DOM v7** — navegación y rutas protegidas
+- **CSS puro con variables** — sistema de diseño sin frameworks externos
+- **DM Sans** — tipografía principal (Google Fonts)
