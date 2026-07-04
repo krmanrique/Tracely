@@ -62,10 +62,13 @@ const gradeController = {
     try {
       const { estudiante_id, curso_id, corte, actividad, tipo, valor, peso } = req.body;
 
+      const enrollment = await Enrollments.findOne({ where: { estudiante_id, curso_id } });
+      if (!enrollment)
+        return res.status(400).json({ error: 'El estudiante no está inscrito en este curso' });
+
       const [grade, created] = await Grades.findOrCreate({
         where: { estudiante_id, curso_id, corte, actividad },
-        defaults: { tipo, valor, peso,
-          inscripcion_id: 0 }, // se actualiza abajo
+        defaults: { tipo, valor, peso, inscripcion_id: enrollment.id },
       });
 
       if (!created) await grade.update({ valor, tipo, peso });
@@ -91,14 +94,19 @@ const gradeController = {
 
       const results = await Promise.all(
         grades.map(async (g) => {
+          const enrollment = await Enrollments.findOne({
+            where: { estudiante_id: g.estudiante_id, curso_id: g.curso_id },
+          });
+          if (!enrollment) return null; // estudiante no inscrito: se omite
+
           const [record, created] = await Grades.findOrCreate({
             where: { estudiante_id: g.estudiante_id, curso_id: g.curso_id, corte: g.corte, actividad: g.actividad },
-            defaults: { ...g, inscripcion_id: 0 },
+            defaults: { ...g, inscripcion_id: enrollment.id },
           });
           if (!created) await record.update({ valor: g.valor });
           return record;
         })
-      );
+      ).then((r) => r.filter(Boolean));
 
       res.json({ message: `${results.length} notas procesadas`, count: results.length });
     } catch (err) {
