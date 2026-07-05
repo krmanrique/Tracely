@@ -1,53 +1,38 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/database');
 
-const Users = sequelize.define('users', {
-
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
+const Usuario = sequelize.define('usuario', {
+  id_institucional: {
+    type: DataTypes.STRING,
+    primaryKey: true,  // ej: "2021-0342" o "DOC-0112"
   },
   nombre: {
     type: DataTypes.STRING,
     allowNull: false,
-    validate: { notEmpty: { msg: 'El nombre no puede estar vacío' } },
   },
-  email: {
+  correo: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: { msg: 'El email ya está registrado' },
-    validate: { isEmail: { msg: 'Email inválido' } },
+    unique: true,
+    validate: { isEmail: true },
   },
   contrasena_hash: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   rol: {
-    type: DataTypes.ENUM('admin', 'profesor', 'estudiante'),
+    type: DataTypes.ENUM('estudiante', 'docente', 'admin'),
     allowNull: false,
     defaultValue: 'estudiante',
   },
-  carrera_id: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: { model: 'careers', key: 'id' },
+}, {
+  tableName: 'usuario',
+  defaultScope: {
+    attributes: { exclude: ['contrasena_hash'] },
   },
-  fecha_registro: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  }, 
-
-  }, {
-    tableName: 'users',
-    // Excluir contraseña en consultas por defecto
-    defaultScope: {
-      attributes: { exclude: ['contrasena_hash'] },
-    },
-    scopes: {
-      withPassword: { attributes: {} },
-    },
-
+  scopes: {
+    withPassword: { attributes: {} },
+  },
 });
 
-module.exports = Users;
+module.exports = Usuario;

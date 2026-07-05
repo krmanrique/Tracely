@@ -1,16 +1,17 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, UUIDV4 } = require('sequelize');
 const sequelize = require('../../config/database');
 
-const Attendance = sequelize.define('attendance', {
-  id:            { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  estudiante_id: { type: DataTypes.INTEGER, allowNull: false },
-  curso_id:      { type: DataTypes.INTEGER, allowNull: false },
-  fecha:         { type: DataTypes.DATEONLY, allowNull: false },
-  presente:      { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-  registrado_por:{ type: DataTypes.INTEGER, allowNull: true }, // id del profesor
+// Asistencia ligada a la inscripcion del estudiante en la asignatura
+const Asistencia = sequelize.define('asistencia', {
+  id:             { type: DataTypes.UUID, defaultValue: UUIDV4, primaryKey: true },
+  inscripcion_id: { type: DataTypes.UUID, allowNull: false, references: { model: 'inscripcion', key: 'id' } },
+  fecha:          { type: DataTypes.DATEONLY, allowNull: false },
+  presente:       { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  registrado_por: { type: DataTypes.STRING, allowNull: true },  // id_institucional del docente
+  observacion:    { type: DataTypes.STRING, allowNull: true },
 }, {
-  tableName: 'attendance',
-  indexes: [{ unique: true, fields: ['estudiante_id', 'curso_id', 'fecha'] }],
+  tableName: 'asistencia',
+  indexes: [{ unique: true, fields: ['inscripcion_id', 'fecha'] }],
 });
 
-module.exports = Attendance;
+module.exports = Asistencia;
