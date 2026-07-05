@@ -1,0 +1,105 @@
+// src/services/emailService.js
+// Usando Resend (resend.com) — gratis hasta 3000 emails/mes
+
+let resendClient = null;
+
+function getResend() {
+  if (resendClient) return resendClient;
+  const { Resend } = require('resend');
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
+
+const emailTemplate = (content) => `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:'Segoe UI',sans-serif;background:#f4f5fb;margin:0;padding:20px;">
+  <div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#8b7eff,#9068ff);padding:32px 40px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:white;letter-spacing:-0.5px;">Tracely</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Sistema de Seguimiento Académico — UNICATÓLICA</div>
+    </div>
+    ${content}
+    <div style="background:#f4f5fb;padding:16px 40px;text-align:center;border-top:1px solid #EEF0FA;">
+      <div style="font-size:11px;color:#A8A5C0;">Mensaje automático de Tracely. No responder.</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+const sendAttendanceAlert = async ({ studentName, studentEmail, subjectName, attendancePercent, isRecuperable }) => {
+  if (!process.env.RESEND_API_KEY) {
+    console.log('⚠️  RESEND_API_KEY no configurado — email omitido');
+    return false;
+  }
+  const color  = attendancePercent < 70 ? '#DC2626' : '#D97706';
+  const tipo   = attendancePercent < 70 ? 'CRÍTICA' : 'BAJA';
+  const msg    = attendancePercent < 70
+    ? 'Tu asistencia está en nivel crítico. Comunícate urgentemente con coordinación académica.'
+    : 'Tu asistencia está por debajo del mínimo requerido (80%). No faltes más clases.';
+
+  const html = emailTemplate(`
+    <div style="padding:32px 40px;">
+      <div style="background:${color}15;border-left:4px solid ${color};padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1px;">⚠ Asistencia ${tipo}</div>
+        <div style="font-size:24px;font-weight:700;color:${color};margin-top:4px;">${attendancePercent}%</div>
+      </div>
+      <p style="font-size:16px;color:#1E1B3A;margin:0 0 8px;">Hola, <strong>${studentName}</strong></p>
+      <p style="font-size:14px;color:#6B6888;line-height:1.6;margin:0 0 20px;">${msg}</p>
+      <div style="background:#f4f5fb;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+        <div style="font-size:11px;font-weight:700;color:#A8A5C0;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Asignatura</div>
+        <div style="font-size:16px;font-weight:600;color:#1E1B3A;">${subjectName}</div>
+        <div style="font-size:13px;color:#6B6888;margin-top:4px;">Actual: <strong style="color:${color}">${attendancePercent}%</strong> — Mínimo: <strong>80%</strong></div>
+      </div>
+      ${isRecuperable
+        ? '<p style="font-size:13px;color:#059669;background:#f0fdf4;padding:10px 14px;border-radius:8px;margin:0 0 20px;">✓ Situación recuperable. Habla con tu docente.</p>'
+        : '<p style="font-size:13px;color:#DC2626;background:#fef2f2;padding:10px 14px;border-radius:8px;margin:0 0 20px;">⛔ Situación crítica. Habla con coordinación académica.</p>'}
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/attendance" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi asistencia →</a>
+    </div>`);
+
+  try {
+    await getResend().emails.send({
+      from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
+      to:      studentEmail,
+      subject: `⚠ Asistencia ${tipo.toLowerCase()} en ${subjectName} — ${attendancePercent}%`,
+      html,
+    });
+    console.log(`📧 Email enviado a ${studentEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Error email:', err.message);
+    return false;
+  }
+};
+
+const sendGradeNotification = async ({ studentName, studentEmail, subjectName, activityName, grade }) => {
+  if (!process.env.RESEND_API_KEY) return false;
+  const color = grade >= 3.0 ? '#059669' : '#DC2626';
+
+  const html = emailTemplate(`
+    <div style="padding:32px 40px;">
+      <p style="font-size:16px;color:#1E1B3A;margin:0 0 20px;">Hola, <strong>${studentName}</strong></p>
+      <div style="background:#f4f5fb;border-radius:10px;padding:20px;margin-bottom:24px;text-align:center;">
+        <div style="font-size:12px;color:#A8A5C0;text-transform:uppercase;letter-spacing:0.8px;">${subjectName} — ${activityName}</div>
+        <div style="font-size:48px;font-weight:700;color:${color};margin:8px 0;">${grade.toFixed(1)}</div>
+        <div style="font-size:13px;color:#6B6888;">Escala 0.0 – 5.0</div>
+      </div>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/grades" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mis notas →</a>
+    </div>`);
+
+  try {
+    await getResend().emails.send({
+      from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
+      to:      studentEmail,
+      subject: `📝 Nueva nota en ${subjectName}: ${grade.toFixed(1)}`,
+      html,
+    });
+    return true;
+  } catch (err) {
+    console.error('❌ Error email nota:', err.message);
+    return false;
+  }
+};
+
+module.exports = { sendAttendanceAlert, sendGradeNotification };

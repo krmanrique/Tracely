@@ -4,13 +4,15 @@ import { useAuth } from "../../context/AuthContext";
 import { login as loginService } from "../../services/authService";
 import unicatolicaLogo from "../../assets/unicatolica-svg.svg";
 import campusBg from "../../assets/campus.png";
+import studentsBg from "../../assets/students.webp";
+import sedePanceBg from "../../assets/sede-pance-unicatolica.jpg";
 
 // ─── Slides del carrusel ───────────────────────────────────────────────────
 // Mientras no tengas más imágenes, todos los slides usan campus.png
 // Cuando tengas más fotos, reemplaza `image` con el import correspondiente
 const SLIDES = [
   {
-    image: campusBg,
+    image: studentsBg,
     label: "Campus Principal",
     stats: [
       { value: "4.200+", desc: "Estudiantes activos" },
@@ -30,11 +32,11 @@ const SLIDES = [
     headline: "Excelencia académica con propósito",
   },
   {
-    image: campusBg,
+    image: sedePanceBg,
     label: "Innovación & Tecnología",
     stats: [
       { value: "85%", desc: "Empleabilidad egresados" },
-      { value: "40+", desc: "Semilleros de investigación" },
+      { value: "20+", desc: "Semilleros de investigación" },
       { value: "100%", desc: "Cobertura digital" },
     ],
     headline: "Innovando para el futuro",
@@ -51,8 +53,18 @@ function generateCaptcha(len = 5) {
 
 // ─── Componente principal ──────────────────────────────────────────────────
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  // Si ya hay sesión activa, redirigir al dashboard correspondiente
+  useEffect(() => {
+    if (user) {
+      const path = user.role === 'student' ? '/student/dashboard'
+        : user.role === 'teacher' ? '/teacher/dashboard'
+        : '/admin/dashboard';
+      navigate(path, { replace: true });
+    }
+  }, [user, navigate]);
 
   // Form state
   const [id, setId] = useState("");
@@ -77,7 +89,7 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(nextSlide, 5000);
+    const timer = setInterval(nextSlide, 7000);
     return () => clearInterval(timer);
   }, [nextSlide]);
 
@@ -115,7 +127,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const userData = await loginService(id, password);
-      login(userData.id, userData.role);
+      login(userData.id, userData.role, userData.nombre, userData.token, userData.correo);
       navigate(
         userData.role === "student"
           ? "/student/dashboard"
@@ -352,10 +364,6 @@ export default function LoginPage() {
             )}
           </button>
 
-          {/* Demo hint — quitar en producción */}
-          <p className="auth-demo-hint">
-            Demo: <strong>12345</strong> = Estudiante · <strong>99999</strong> = Docente · contraseña: cualquiera
-          </p>
         </div>
       </div>
     </div>

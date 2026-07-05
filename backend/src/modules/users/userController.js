@@ -1,53 +1,38 @@
-const Users   = require('./userModel');
-const jwt     = require('jsonwebtoken');
-const bcrypt  = require('bcrypt');
+const { Usuario } = require('../../models');
+const jwt    = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
-// Mapea los roles de BD a los roles del frontend
-const rolMap = { admin: 'admin', profesor: 'teacher', estudiante: 'student' };
+const rolMap = { admin: 'admin', docente: 'teacher', estudiante: 'student' };
 
 const userController = {
 
-  // POST /api/users/register
   registerUser: async (req, res) => {
     try {
-      const { nombre, email, password, rol, carrera_id } = req.body;
-
-      const salt           = await bcrypt.genSalt(10);
-      const contrasena_hash = await bcrypt.hash(password, salt);
-
-      const newUser = await Users.create({ nombre, email, contrasena_hash, rol: rol || 'estudiante', carrera_id });
-
-      res.status(201).json({
-        message: 'Usuario registrado con éxito',
-        user: { id: newUser.id, nombre: newUser.nombre, email: newUser.email, rol: newUser.rol },
-      });
+      const { id_institucional, nombre, correo, password, rol } = req.body;
+      const contrasena_hash = await bcrypt.hash(password, 10);
+      const newUser = await Usuario.create({ id_institucional, nombre, correo, contrasena_hash, rol: rol || 'estudiante' });
+      res.status(201).json({ message: 'Usuario registrado', user: { id_institucional: newUser.id_institucional, nombre: newUser.nombre, correo: newUser.correo, rol: newUser.rol } });
     } catch (e) {
       if (e.name === 'SequelizeUniqueConstraintError')
-        return res.status(400).json({ error: 'El email ya está registrado' });
+        return res.status(400).json({ error: 'El correo o ID ya está registrado' });
       console.error(e);
       res.status(500).json({ error: 'Error al registrar el usuario' });
     }
   },
 
-  // POST /api/users/login
-  // Acepta { id, password } — id puede ser el id numérico o el email
   loginUser: async (req, res) => {
     try {
       const { id, password } = req.body;
+      if (!id || !password) return res.status(400).json({ error: 'ID y contraseña son requeridos' });
 
-      // Busca por id numérico o por email
-      const whereClause = isNaN(id) ? { email: id } : { id: parseInt(id) };
-      const user = await Users.scope('withPassword').findOne({ where: whereClause });
-
-      if (!user)
-        return res.status(404).json({ error: 'Usuario no encontrado' });
+      const user = await Usuario.scope('withPassword').findOne({ where: { id_institucional: id } });
+      if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
       const valid = await bcrypt.compare(password, user.contrasena_hash);
-      if (!valid)
-        return res.status(401).json({ error: 'Contraseña incorrecta' });
+      if (!valid) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
       const token = jwt.sign(
-        { id: user.id, rol: user.rol },
+        { id: user.id_institucional, rol: user.rol },
         process.env.JWT_SECRET || 'secretkey',
         { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
       );
@@ -55,12 +40,11 @@ const userController = {
       res.json({
         token,
         user: {
-          id:     user.id,
-          nombre: user.nombre,
-          email:  user.email,
-          rol:    user.rol,
-          // El frontend usa "role" con estos valores: student | teacher | admin
-          role:   rolMap[user.rol] ?? user.rol,
+          id_institucional: user.id_institucional,
+          nombre:           user.nombre,
+          correo:           user.correo,
+          rol:              user.rol,
+          role:             rolMap[user.rol] ?? user.rol,
         },
       });
     } catch (error) {
@@ -69,14 +53,11 @@ const userController = {
     }
   },
 
-  // GET /api/users/me  — perfil del usuario autenticado
   getMe: async (req, res) => {
     try {
-      const user = await Users.findByPk(req.user.id, {
-        include: [{ association: 'carrera', attributes: ['nombre'] }],
-      });
-      if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-      res.json({ ...user.dataValues, role: rolMap[user.rol] ?? user.rol });
+      const user = await Usuario.findOne({ where: { id_institucional: req.user.id } });
+      if (!user) return res.status(404).json({ error: 'No encontrado' });
+      res.json({ id_institucional: user.id_institucional, nombre: user.nombre, correo: user.correo, rol: user.rol, role: rolMap[user.rol] ?? user.rol });
     } catch (err) {
       res.status(500).json({ error: 'Error al obtener perfil' });
     }
@@ -85,44 +66,34 @@ const userController = {
   getAllUsers: async (req, res) => {
     try {
       const { rol } = req.query;
-      const where = rol ? { rol } : {};
-      const data = await Users.findAll({ where });
+      const data = await Usuario.findAll(rol ? { where: { rol } } : {});
       res.json(data);
-    } catch (error) {
-      res.status(500).json({ error: 'Error al obtener usuarios' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Error al obtener usuarios' }); }
   },
 
   getOneUser: async (req, res) => {
     try {
-      const data = await Users.findByPk(req.params.id);
+      const data = await Usuario.findOne({ where: { id_institucional: req.params.id } });
       if (!data) return res.status(404).json({ error: 'No encontrado' });
       res.json(data);
-    } catch (error) {
-      res.status(500).json({ error: 'Error al obtener usuario' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Error' }); }
   },
 
   updateUser: async (req, res) => {
     try {
-      const user = await Users.findByPk(req.params.id);
+      const user = await Usuario.findOne({ where: { id_institucional: req.params.id } });
       if (!user) return res.status(404).json({ error: 'No encontrado' });
-      const { nombre, email } = req.body;
-      await user.update({ nombre, email });
-      res.json({ message: 'Usuario actualizado', user });
-    } catch (error) {
-      res.status(500).json({ error: 'Error al actualizar' });
-    }
+      await user.update({ nombre: req.body.nombre, correo: req.body.correo });
+      res.json({ message: 'Actualizado', user });
+    } catch (error) { res.status(500).json({ error: 'Error al actualizar' }); }
   },
 
   deleteUser: async (req, res) => {
     try {
-      const deleted = await Users.destroy({ where: { id: req.params.id } });
+      const deleted = await Usuario.destroy({ where: { id_institucional: req.params.id } });
       if (!deleted) return res.status(404).json({ error: 'No encontrado' });
-      res.json({ message: 'Usuario eliminado' });
-    } catch (error) {
-      res.status(500).json({ error: 'Error interno' });
-    }
+      res.json({ message: 'Eliminado' });
+    } catch (error) { res.status(500).json({ error: 'Error' }); }
   },
 };
 
