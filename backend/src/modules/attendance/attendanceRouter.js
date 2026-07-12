@@ -4,8 +4,8 @@ const { authenticate, authorize } = require('../../middlewares/auth');
 
 const router = express.Router();
 
-router.get('/student/:studentId', authenticate, attendanceController.getStudentAttendance);
-router.get('/course/:courseId',   authenticate, authorize('profesor', 'admin'), attendanceController.getCourseAttendance);
-router.post('/bulk',              authenticate, authorize('profesor', 'admin'), attendanceController.saveDayAttendance);
+router.get('/estudiante/:estudianteId', authenticate, attendanceController.getByEstudiante);
+router.get('/asignatura/:asignaturaId', authenticate, authorize('docente', 'admin'), attendanceController.getByAsignatura);
+router.post('/bulk', authenticate, authorize('docente', 'admin'), attendanceController.saveDayAttendance);
 
 module.exports = router;

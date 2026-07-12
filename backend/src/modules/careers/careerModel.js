@@ -1,35 +1,28 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, UUIDV4 } = require('sequelize');
 const sequelize = require('../../config/database');
 
-const Careers = sequelize.define('careers', {
-
+const Carrera = sequelize.define('carrera', {
   id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
+    defaultValue: UUIDV4,
     primaryKey: true,
-    autoIncrement: true,
+  },
+  nombre: {
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   codigo: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
   },
-  nombre: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: { notEmpty: { msg: 'El nombre no puede estar vacío' } },
-  },
-  duracion_semestres: {
+  total_creditos: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    validate: { min: 1, max: 12 },
+    defaultValue: 0,
   },
-  activa: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
-
 }, {
-  tableName: 'careers',
+  tableName: 'carrera',
 });
 
-module.exports = Careers;
+module.exports = Carrera;

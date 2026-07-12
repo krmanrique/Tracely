@@ -1,15 +1,47 @@
-import { attColor } from "../../utils/helpers";
+import { useState, useEffect } from 'react';
+import { attColor } from '../../utils/helpers';
+import { getAttendance } from '../../services/attendanceService';
 
-export default function AttendanceView({ semData }) {
-  const courses = semData?.courses ?? [];
+export default function AttendanceView({ estudianteId, semestre, semData }) {
+  const [courses, setCourses]   = useState(semData?.courses ?? []);
+  const [loading, setLoading]   = useState(!semData);
+  const [error, setError]       = useState(null);
 
-  if (courses.length === 0)
-    return (
-      <div className="empty">
-        <div className="empty-icon">📭</div>
-        No hay materias para este semestre
-      </div>
-    );
+  // Si viene estudianteId (modo backend real), carga desde API
+  useEffect(() => {
+    if (!estudianteId || !semestre) return;
+    setLoading(true);
+    getAttendance(estudianteId, semestre)
+      .then(setCourses)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [estudianteId, semestre]);
+
+  // Si cambia semData (modo mock), actualiza
+  useEffect(() => {
+    if (semData?.courses) setCourses(semData.courses);
+  }, [semData]);
+
+  if (loading) return (
+    <div className="empty">
+      <div className="empty-icon">⏳</div>
+      Cargando asistencia...
+    </div>
+  );
+
+  if (error) return (
+    <div className="empty">
+      <div className="empty-icon">⚠️</div>
+      {error}
+    </div>
+  );
+
+  if (courses.length === 0) return (
+    <div className="empty">
+      <div className="empty-icon">📭</div>
+      No hay materias para este semestre
+    </div>
+  );
 
   return (
     <div>
@@ -17,9 +49,9 @@ export default function AttendanceView({ semData }) {
       <div className="grid grid-4" style={{ marginBottom: 18 }}>
         {courses.map((c) => (
           <div key={c.id} className="card" style={{ padding: 18 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, marginBottom: 8 }} />
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", marginBottom: 4 }}>{c.name}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-1px", color: attColor(c.attendance) }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? '#4F46E5', marginBottom: 8 }} />
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>{c.name}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: attColor(c.attendance) }}>
               {c.attendance}%
             </div>
             <div style={{ marginTop: 8 }}>
@@ -27,8 +59,8 @@ export default function AttendanceView({ semData }) {
                 <div className="progress-fill" style={{ width: `${c.attendance}%`, background: attColor(c.attendance) }} />
               </div>
             </div>
-            <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 5 }}>
-              Mín. 80% {c.attendance < 80 && <span style={{ color: "var(--red)" }}>⚠</span>}
+            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 5 }}>
+              Mín. 80% {c.attendance < 80 && <span style={{ color: 'var(--red)' }}>⚠</span>}
             </div>
           </div>
         ))}
@@ -52,20 +84,20 @@ export default function AttendanceView({ semData }) {
             {courses.map((c) => (
               <tr key={c.id}>
                 <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? '#4F46E5' }} />
                     <div>
                       <div style={{ fontWeight: 500 }}>{c.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--text2)" }}>{c.code}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>{c.code}</div>
                     </div>
                   </div>
                 </td>
-                <td style={{ color: "var(--text2)", fontSize: 12 }}>{c.teacher}</td>
-                <td style={{ color: "var(--text2)" }}>{c.credits}</td>
+                <td style={{ color: 'var(--text2)', fontSize: 12 }}>{c.teacher ?? '—'}</td>
+                <td style={{ color: 'var(--text2)' }}>{c.credits ?? '—'}</td>
                 <td style={{ fontWeight: 700, color: attColor(c.attendance) }}>{c.attendance}%</td>
                 <td>
-                  <span className={`badge badge-${c.status}`}>
-                    {c.status === "active" ? "Al día" : "Alerta"}
+                  <span className={`badge badge-${c.status === 'active' ? 'active' : 'alert'}`}>
+                    {c.status === 'active' ? 'Al día' : 'Alerta'}
                   </span>
                 </td>
                 <td style={{ width: 120 }}>
