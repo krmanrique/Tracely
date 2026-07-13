@@ -17,7 +17,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError('');
     if (!id || !password) {
-      setError('Completa tu ID/correo y tu contraseña.');
+      setError('Completa tu ID institucional y tu contraseña.');
       return;
     }
     try {
@@ -50,10 +50,10 @@ export default function LoginScreen() {
           )}
 
           <View style={styles.field}>
-            <Text style={styles.label}>ID institucional o correo</Text>
+            <Text style={styles.label}>ID institucional</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: michael.sanchez@unicatolica.edu.co"
+              placeholder="Ej: 2021-0342"
               placeholderTextColor={Colors.text3}
               autoCapitalize="none"
               autoCorrect={false}

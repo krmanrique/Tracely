@@ -3,12 +3,11 @@ import { apiFetch, setToken, clearToken, getToken } from './client';
 export type Role = 'student' | 'teacher';
 
 export interface AuthUser {
-  id: number;
+  id_institucional: string;
   nombre: string;
-  email: string;
-  rol: 'admin' | 'profesor' | 'estudiante';
+  correo: string;
+  rol: 'admin' | 'docente' | 'estudiante';
   role: Role | 'admin';
-  carrera?: { nombre: string } | null;
 }
 
 interface LoginResponse {

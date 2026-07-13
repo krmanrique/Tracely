@@ -3,17 +3,16 @@ import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-nati
 import { Colors, Font, Radius, Space } from '../../constants/theme';
 
 export interface CourseTabItem {
-  id: number;
+  id: string;
   code: string;
-  group: string | null;
 }
 
 export default function CourseTabs({
   courses, activeId, onSelect,
 }: {
   courses: CourseTabItem[];
-  activeId: number;
-  onSelect: (id: number) => void;
+  activeId: string;
+  onSelect: (id: string) => void;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Space.md }}>
@@ -25,7 +24,7 @@ export default function CourseTabs({
             onPress={() => onSelect(c.id)}
           >
             <Text style={[styles.tabText, activeId === c.id && styles.tabTextActive]}>
-              {c.code}{c.group ? ` ${c.group}` : ''}
+              {c.code}
             </Text>
           </TouchableOpacity>
         ))}

@@ -16,8 +16,8 @@ export default function TeacherDashboardScreen() {
   const { teacherSemData: semData, loading, error, refresh, saveTodayAttendance } = useData();
   const courses = semData?.courses ?? [];
 
-  const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
-  const [attendance, setAttendance] = useState<Record<number, boolean>>({});
+  const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -64,9 +64,9 @@ export default function TeacherDashboardScreen() {
   const atRisk = activeCourse.students.filter((s) => s.status !== 'active');
   const totalStudents = courses.reduce((a, c) => a + c.students.length, 0);
 
-  const toggleAtt = (id: number) => setAttendance((p) => ({ ...p, [id]: !p[id] }));
+  const toggleAtt = (id: string) => setAttendance((p) => ({ ...p, [id]: !p[id] }));
 
-  const handleSelectCourse = (id: number) => {
+  const handleSelectCourse = (id: string) => {
     setActiveCourseId(id);
     const c = courses.find((x) => x.id === id);
     setAttendance(c?.todayAttendance ?? {});
@@ -76,8 +76,8 @@ export default function TeacherDashboardScreen() {
     setSaving(true);
     try {
       const records = activeCourse.students.map((s) => ({
-        estudiante_id: s.id,
-        presente: attendance[s.id] ?? false,
+        inscripcion_id: s.inscripcionId,
+        presente: attendance[s.inscripcionId] ?? false,
       }));
       await saveTodayAttendance(activeCourse.id, records);
     } finally {
@@ -140,10 +140,10 @@ export default function TeacherDashboardScreen() {
         ) : (
           activeCourse.students.map((s) => (
             <StudentAttendanceRow
-              key={s.id}
+              key={s.inscripcionId}
               student={s}
-              present={attendance[s.id]}
-              onToggle={() => toggleAtt(s.id)}
+              present={attendance[s.inscripcionId]}
+              onToggle={() => toggleAtt(s.inscripcionId)}
             />
           ))
         )}

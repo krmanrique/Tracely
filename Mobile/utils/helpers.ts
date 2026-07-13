@@ -19,18 +19,26 @@ export interface Actividad {
   label: string;
   tipo: string;
   value: number | null;
+  weight: number | null; // porcentaje_en_corte
 }
 
 export interface Corte {
-  id: number;
+  id: number; // numero_corte (1, 2, 3…)
+  uuid: string;
   label: string;
-  weight: number;
+  weight: number; // peso_porcentual del corte
   actividades: Actividad[];
 }
 
+// Promedio del corte ponderado por porcentaje_en_corte; si las actividades
+// calificadas no tienen peso, promedio simple.
 export function corteAvg(actividades: Actividad[]): number | null {
   const graded = actividades.filter((a) => a.value != null);
   if (!graded.length) return null;
+  const totalWeight = graded.reduce((s, a) => s + (a.weight ?? 0), 0);
+  if (totalWeight > 0) {
+    return graded.reduce((s, a) => s + (a.value ?? 0) * (a.weight ?? 0), 0) / totalWeight;
+  }
   return graded.reduce((s, a) => s + (a.value ?? 0), 0) / graded.length;
 }
 
@@ -74,6 +82,9 @@ export function monthKey(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Fecha local (no UTC): con toISOString() en Colombia (UTC-5) después de las
+// 7pm la asistencia quedaba registrada con la fecha del día siguiente.
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

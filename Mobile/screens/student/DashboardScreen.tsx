@@ -2,7 +2,6 @@ import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import RingChart from '../../components/charts/RingChart';
-import MiniBarChart from '../../components/charts/MiniBarChart';
 import StatCard from '../../components/ui/StatCard';
 import Card from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -75,15 +74,6 @@ export default function StudentDashboardScreen() {
           </View>
         </View>
       </Card>
-
-      {semData.attendanceHistory.length > 0 && (
-        <Card>
-          <Text style={styles.sectionTitle}>Asistencia Mensual</Text>
-          <View style={{ marginTop: Space.md }}>
-            <MiniBarChart data={semData.attendanceHistory} />
-          </View>
-        </Card>
-      )}
 
       <Card>
         <View style={styles.rowBetween}>

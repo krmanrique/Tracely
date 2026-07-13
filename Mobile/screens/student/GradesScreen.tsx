@@ -11,7 +11,7 @@ import { gradeColor, corteAvg, courseOverall } from '../../utils/helpers';
 export default function GradesScreen() {
   const { studentSemData: semData, loading } = useData();
   const courses = semData?.courses ?? [];
-  const [selectedId, setSelectedId] = useState<number>(courses[0]?.id ?? 0);
+  const [selectedId, setSelectedId] = useState<string>(courses[0]?.id ?? '');
   const [activeCorte, setActiveCorte] = useState(1);
 
   if (loading && !semData) {

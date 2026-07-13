@@ -22,7 +22,7 @@ export default function ProfileModal({ visible, onClose }: { visible: boolean; o
 
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Correo</Text>
-            <Text style={styles.rowValue}>{user?.email}</Text>
+            <Text style={styles.rowValue}>{user?.correo}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>ID institucional</Text>

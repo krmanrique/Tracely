@@ -1,104 +1,143 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import Card from '../../components/ui/Card';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
-import * as coursesService from '../../services/coursesService';
-import * as gradesService from '../../services/gradesService';
-import type { Course } from '../../services/coursesService';
-import type { CourseGradeRecord } from '../../services/gradesService';
+import { useData } from '../../context/DataContext';
+import { toNum } from '../../services/apiTypes';
+import * as calificacionesService from '../../services/calificacionesService';
 
-const CORTES = [1, 2, 3] as const;
+interface ExistingRow {
+  key: string;
+  estudiante: string;
+  actividad: string;
+  tipo: string;
+  porcentaje: number | null;
+  nota: number | null;
+}
 
 export default function GradesEntryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const courseId = Number(id);
+  const { teacherSemData, refresh } = useData();
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [corte, setCorte] = useState<1 | 2 | 3>(1);
+  const course = useMemo(
+    () => teacherSemData?.courses.find((c) => c.id === id) ?? null,
+    [teacherSemData, id]
+  );
+
+  const [corteNum, setCorteNum] = useState<number | null>(null);
   const [actividad, setActividad] = useState('');
-  const [tipo, setTipo] = useState('Taller');
+  const [tipo, setTipo] = useState('taller');
   const [peso, setPeso] = useState('');
-  const [values, setValues] = useState<Record<number, string>>({});
-  const [existing, setExisting] = useState<CourseGradeRecord[]>([]);
+  const [values, setValues] = useState<Record<string, string>>({}); // por inscripcion_id
+  const [existing, setExisting] = useState<ExistingRow[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loadingNotas, setLoadingNotas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadCourse = useCallback(async () => {
-    const c = await coursesService.getCourse(courseId);
-    setCourse(c);
-  }, [courseId]);
+  const cortes = course?.cortes ?? [];
+  const activeCorte = cortes.find((c) => c.numero_corte === corteNum) ?? cortes[0] ?? null;
+
+  useEffect(() => {
+    if (corteNum == null && cortes.length) setCorteNum(cortes[0].numero_corte);
+  }, [cortes, corteNum]);
 
   const loadExisting = useCallback(async () => {
-    const records = await gradesService.getCourseGrades(courseId, corte);
-    setExisting(records);
-  }, [courseId, corte]);
+    if (!course || !activeCorte) return;
+    setLoadingNotas(true);
+    try {
+      const inscripciones = await calificacionesService.getByAsignatura(course.id, activeCorte.numero_corte);
+      const rows: ExistingRow[] = [];
+      for (const insc of inscripciones) {
+        const nombre = insc.estudiante?.usuario?.nombre ?? '—';
+        for (const cal of insc.calificaciones ?? []) {
+          if (!cal.actividad) continue; // calificación de otro corte
+          rows.push({
+            key: cal.id,
+            estudiante: nombre,
+            actividad: cal.actividad.nombre,
+            tipo: cal.actividad.tipo,
+            porcentaje: toNum(cal.actividad.porcentaje_en_corte),
+            nota: toNum(cal.nota),
+          });
+        }
+      }
+      rows.sort((a, b) => a.actividad.localeCompare(b.actividad) || a.estudiante.localeCompare(b.estudiante));
+      setExisting(rows);
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudieron cargar las notas');
+    } finally {
+      setLoadingNotas(false);
+    }
+  }, [course, activeCorte]);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([loadCourse(), loadExisting()])
-      .catch((e) => setError(e?.message ?? 'No se pudo cargar la información'))
-      .finally(() => setLoading(false));
-  }, [loadCourse, loadExisting]);
+    loadExisting();
+  }, [loadExisting]);
 
-  useEffect(() => {
-    loadExisting().catch((e) => setError(e?.message ?? 'No se pudo cargar las notas'));
-  }, [corte, loadExisting]);
-
-  if (loading) {
+  if (!course) {
     return (
       <View style={styles.empty}>
-        <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={styles.emptyText}>Curso no encontrado. Vuelve al dashboard e inténtalo de nuevo.</Text>
       </View>
     );
   }
 
-  const students = course?.estudiantes ?? [];
+  const students = course.students;
 
   const handleSave = async () => {
     setError('');
     setSuccess('');
+    if (!activeCorte) {
+      setError('Esta asignatura no tiene cortes configurados.');
+      return;
+    }
     if (!actividad.trim()) {
       setError('Ponle un nombre a la actividad.');
       return;
     }
     const pesoNum = parseFloat(peso);
-    if (!pesoNum || pesoNum <= 0) {
-      setError('El peso debe ser un número mayor a 0.');
+    if (!pesoNum || pesoNum <= 0 || pesoNum > 100) {
+      setError('El peso en el corte debe estar entre 1 y 100.');
       return;
     }
 
-    const grades = students
+    const notas = students
       .map((s) => {
-        const raw = values[s.id];
+        const raw = values[s.inscripcionId];
         if (raw == null || raw.trim() === '') return null;
-        const valor = parseFloat(raw);
-        if (Number.isNaN(valor)) return null;
-        return {
-          estudiante_id: s.id, curso_id: courseId, corte,
-          actividad: actividad.trim(), tipo, valor, peso: pesoNum,
-        };
+        const nota = parseFloat(raw);
+        if (Number.isNaN(nota) || nota < 0 || nota > 5) return null;
+        return { inscripcion_id: s.inscripcionId, nota };
       })
       .filter((g): g is NonNullable<typeof g> => g != null);
 
-    if (grades.length === 0) {
-      setError('Ingresa al menos una nota.');
+    if (notas.length === 0) {
+      setError('Ingresa al menos una nota válida (0.0 – 5.0).');
       return;
     }
 
     setSaving(true);
     try {
-      await gradesService.bulkUpsertGrades(grades);
-      setSuccess(`${grades.length} nota(s) guardadas`);
+      const nueva = await calificacionesService.createActividad({
+        corte_id: activeCorte.id,
+        nombre: actividad.trim(),
+        tipo: tipo.trim().toLowerCase() || 'taller',
+        porcentaje_en_corte: pesoNum,
+      });
+      await calificacionesService.bulkUpsert(
+        notas.map((n) => ({ ...n, actividad_id: nueva.id }))
+      );
+      setSuccess(`${notas.length} nota(s) guardadas en "${nueva.nombre}"`);
       setValues({});
       setActividad('');
       setPeso('');
       await loadExisting();
+      refresh(); // actualiza cortes/actividades del contexto en segundo plano
     } catch (e: any) {
       setError(e?.message ?? 'No se pudieron guardar las notas');
     } finally {
@@ -108,18 +147,19 @@ export default function GradesEntryScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      {course && (
-        <Text style={styles.courseTitle}>{course.nombre} · {course.codigo}{course.grupo ? ` ${course.grupo}` : ''}</Text>
-      )}
+      <Text style={styles.courseTitle}>{course.name} · {course.code}</Text>
 
       <View style={styles.corteRow}>
-        {CORTES.map((c) => (
+        {cortes.map((c) => (
           <TouchableOpacity
-            key={c}
-            style={[styles.cortePill, corte === c && styles.cortePillActive]}
-            onPress={() => setCorte(c)}
+            key={c.id}
+            style={[styles.cortePill, activeCorte?.id === c.id && styles.cortePillActive]}
+            onPress={() => setCorteNum(c.numero_corte)}
           >
-            <Text style={[styles.cortePillText, corte === c && styles.cortePillTextActive]}>Corte {c}</Text>
+            <Text style={[styles.cortePillText, activeCorte?.id === c.id && styles.cortePillTextActive]}>
+              Corte {c.numero_corte}
+            </Text>
+            <Text style={styles.cortePillWeight}>{toNum(c.peso_porcentual) ?? 0}%</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -146,14 +186,14 @@ export default function GradesEntryScreen() {
             <Text style={styles.label}>Tipo</Text>
             <TextInput
               style={styles.input}
-              placeholder="Taller, Quiz, Parcial..."
+              placeholder="taller, quiz, parcial, proyecto..."
               placeholderTextColor={Colors.text3}
               value={tipo}
               onChangeText={setTipo}
             />
           </View>
-          <View style={[styles.field, { width: 90 }]}>
-            <Text style={styles.label}>Peso %</Text>
+          <View style={[styles.field, { width: 110 }]}>
+            <Text style={styles.label}>% en corte</Text>
             <TextInput
               style={styles.input}
               placeholder="20"
@@ -170,15 +210,15 @@ export default function GradesEntryScreen() {
           <Text style={styles.emptyText}>Sin estudiantes inscritos</Text>
         ) : (
           students.map((s) => (
-            <View key={s.id} style={styles.studentRow}>
-              <Text style={styles.studentName} numberOfLines={1}>{s.nombre}</Text>
+            <View key={s.inscripcionId} style={styles.studentRow}>
+              <Text style={styles.studentName} numberOfLines={1}>{s.name}</Text>
               <TextInput
                 style={styles.gradeInput}
                 placeholder="—"
                 placeholderTextColor={Colors.text3}
                 keyboardType="decimal-pad"
-                value={values[s.id] ?? ''}
-                onChangeText={(t) => setValues((v) => ({ ...v, [s.id]: t }))}
+                value={values[s.inscripcionId] ?? ''}
+                onChangeText={(t) => setValues((v) => ({ ...v, [s.inscripcionId]: t }))}
               />
             </View>
           ))
@@ -190,17 +230,21 @@ export default function GradesEntryScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.sectionTitle}>Notas registradas — Corte {corte}</Text>
-        {existing.length === 0 ? (
+        <Text style={styles.sectionTitle}>Notas registradas — Corte {activeCorte?.numero_corte ?? '—'}</Text>
+        {loadingNotas ? (
+          <ActivityIndicator color={Colors.accent} style={{ paddingVertical: Space.md }} />
+        ) : existing.length === 0 ? (
           <Text style={styles.emptyText}>Sin notas registradas en este corte</Text>
         ) : (
           existing.map((g) => (
-            <View key={g.id} style={styles.existingRow}>
+            <View key={g.key} style={styles.existingRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.existingStudent}>{g.estudiante?.nombre ?? `#${g.estudiante_id}`}</Text>
-                <Text style={styles.existingActividad}>{g.actividad} · {g.tipo} · {g.peso}%</Text>
+                <Text style={styles.existingStudent}>{g.estudiante}</Text>
+                <Text style={styles.existingActividad}>
+                  {g.actividad} · {g.tipo}{g.porcentaje != null ? ` · ${g.porcentaje}%` : ''}
+                </Text>
               </View>
-              <Text style={styles.existingValor}>{g.valor != null ? g.valor.toFixed(1) : '—'}</Text>
+              <Text style={styles.existingValor}>{g.nota != null ? g.nota.toFixed(1) : '—'}</Text>
             </View>
           ))
         )}
@@ -215,7 +259,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Colors.bg },
   content: { padding: Space.lg, gap: Space.md },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, backgroundColor: Colors.bg },
-  emptyText: { fontSize: Font.sm, color: Colors.text3, paddingVertical: Space.sm },
+  emptyText: { fontSize: Font.sm, color: Colors.text3, paddingVertical: Space.sm, textAlign: 'center' },
 
   courseTitle: { fontSize: Font.md, fontWeight: '700', color: Colors.text },
 
@@ -227,6 +271,7 @@ const styles = StyleSheet.create({
   cortePillActive: { backgroundColor: 'rgba(79,70,229,0.08)', borderColor: Colors.accent },
   cortePillText: { fontSize: Font.sm, fontWeight: '600', color: Colors.text2 },
   cortePillTextActive: { color: Colors.accent },
+  cortePillWeight: { fontSize: Font.xs, color: Colors.text3, marginTop: 2 },
 
   sectionTitle: { fontSize: Font.md, fontWeight: '700', color: Colors.text, marginBottom: Space.md },
   errorText: { color: Colors.red, fontSize: Font.sm, marginBottom: Space.sm },

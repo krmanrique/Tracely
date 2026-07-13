@@ -1,23 +1,25 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Colors } from '../constants/theme';
-import { courseOverall, riskLevel, attendanceStatus, monthLabel, monthKey, todayISO, RiskLevel, StudentStatus, Actividad as ActividadType, Corte as CorteType } from '../utils/helpers';
-import * as coursesService from '../services/coursesService';
-import * as gradesService from '../services/gradesService';
-import * as attendanceService from '../services/attendanceService';
-import type { Course } from '../services/coursesService';
+import { courseOverall, riskLevel, attendanceStatus, todayISO, RiskLevel, StudentStatus, Corte as CorteType } from '../utils/helpers';
+import { toNum } from '../services/apiTypes';
+import type { ApiAsignatura, ApiCorte } from '../services/apiTypes';
+import * as studentsService from '../services/studentsService';
+import * as teachersService from '../services/teachersService';
+
+const PALETTE = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0891B2'];
 
 export interface Notif {
   id: string;
   type: 'alert' | 'warning' | 'info' | 'success';
-  courseId: number | null;
+  courseId: string | null;
   message: string;
   time: string;
   read: boolean;
 }
 
 export interface StudentCourse {
-  id: number;
+  id: string;
   name: string;
   code: string;
   teacher: string;
@@ -35,27 +37,27 @@ export interface StudentSemData {
   riskLevel: RiskLevel;
   courses: StudentCourse[];
   notifications: Notif[];
-  attendanceHistory: { month: string; rate: number }[];
 }
 
 export interface TeacherStudent {
-  id: number;
+  id: string;
+  inscripcionId: string;
   name: string;
-  email: string;
+  idInst: string;
   attendance: number;
   absences: number;
   status: StudentStatus;
 }
 
 export interface TeacherCourse {
-  id: number;
+  id: string;
   name: string;
   code: string;
-  group: string | null;
   color: string;
   credits: number;
+  cortes: ApiCorte[];
   students: TeacherStudent[];
-  todayAttendance: Record<number, boolean>;
+  todayAttendance: Record<string, boolean>; // por inscripcion_id
 }
 
 export interface TeacherSemData {
@@ -81,86 +83,26 @@ interface DataContextType {
   teacherSemData: TeacherSemData | null;
   unread: number;
   profile: Profile;
-  saveTodayAttendance: (courseId: number, records: { estudiante_id: number; presente: boolean }[]) => Promise<void>;
+  saveTodayAttendance: (asignaturaId: string, records: { inscripcion_id: string; presente: boolean }[]) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
 
-function buildActividades(list: gradesService.GradeActividad[]): ActividadType[] {
-  return list.map((a) => ({ id: String(a.id), label: a.actividad, tipo: a.tipo, value: a.valor }));
-}
-
-function buildCortes(grade: gradesService.StudentGradeCourse | undefined): CorteType[] {
-  const weights = [30, 30, 40];
-  const labels = ['Corte 1', 'Corte 2', 'Corte 3'];
-  return [1, 2, 3].map((n, idx) => ({
-    id: n,
-    label: labels[idx],
-    weight: weights[idx],
-    actividades: buildActividades(grade?.cortes?.[String(n) as '1' | '2' | '3'] ?? []),
+function buildCortes(asignatura: ApiAsignatura, notasByActividad: Map<string, number>): CorteType[] {
+  const cortes = [...(asignatura.cortes ?? [])].sort((a, b) => a.numero_corte - b.numero_corte);
+  return cortes.map((c) => ({
+    id: c.numero_corte,
+    uuid: c.id,
+    label: `Corte ${c.numero_corte}`,
+    weight: toNum(c.peso_porcentual) ?? 0,
+    actividades: (c.actividades ?? []).map((a) => ({
+      id: a.id,
+      label: a.nombre,
+      tipo: a.tipo,
+      weight: toNum(a.porcentaje_en_corte),
+      value: notasByActividad.get(a.id) ?? null,
+    })),
   }));
-}
-
-function buildStudentSemesters(
-  courseMeta: Map<number, Course>,
-  enrolledIds: number[],
-  gradeCourses: gradesService.StudentGradeCourse[],
-  attCourses: attendanceService.StudentAttendanceCourse[]
-): Record<string, StudentCourse[] & { registros?: never }> {
-  const gradeById = new Map(gradeCourses.map((c) => [c.id, c]));
-  const attById = new Map(attCourses.map((c) => [c.id, c]));
-  // Materias inscritas aunque no tengan notas/asistencia todavía
-  const allIds = new Set<number>([...enrolledIds, ...gradeById.keys(), ...attById.keys()]);
-
-  const bySemester: Record<string, StudentCourse[]> = {};
-
-  for (const id of allIds) {
-    const meta = courseMeta.get(id);
-    const g = gradeById.get(id);
-    const a = attById.get(id);
-    const semestreCodigo = meta?.semestre?.codigo ?? 'Sin semestre';
-    const attendance = a?.attendance ?? 100;
-
-    const course: StudentCourse = {
-      id,
-      name: g?.nombre ?? a?.nombre ?? meta?.nombre ?? '—',
-      code: g?.codigo ?? a?.codigo ?? meta?.codigo ?? '',
-      teacher: g?.profesor ?? meta?.profesor?.nombre ?? '',
-      attendance,
-      credits: g?.creditos ?? meta?.creditos ?? 0,
-      status: a?.status ?? (attendance < 80 ? 'alert' : 'active'),
-      color: g?.color ?? a?.color ?? meta?.color ?? Colors.accent,
-      cortes: buildCortes(g),
-    };
-
-    (bySemester[semestreCodigo] ??= []).push(course);
-  }
-
-  return bySemester;
-}
-
-function buildAttendanceHistory(attCourses: attendanceService.StudentAttendanceCourse[], courseMeta: Map<number, Course>) {
-  const bySemester: Record<string, { fecha: string; presente: boolean }[]> = {};
-  for (const c of attCourses) {
-    const semestreCodigo = courseMeta.get(c.id)?.semestre?.codigo ?? 'Sin semestre';
-    (bySemester[semestreCodigo] ??= []).push(...c.registros);
-  }
-
-  const result: Record<string, { month: string; rate: number }[]> = {};
-  for (const [sem, regs] of Object.entries(bySemester)) {
-    const byMonth = new Map<string, { label: string; total: number; present: number }>();
-    for (const r of regs) {
-      const key = monthKey(r.fecha);
-      const entry = byMonth.get(key) ?? { label: monthLabel(r.fecha), total: 0, present: 0 };
-      entry.total++;
-      if (r.presente) entry.present++;
-      byMonth.set(key, entry);
-    }
-    result[sem] = [...byMonth.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, v]) => ({ month: v.label, rate: Math.round((v.present / v.total) * 100) }));
-  }
-  return result;
 }
 
 function buildNotifications(courses: StudentCourse[]): Notif[] {
@@ -200,6 +142,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [semestre, setSemestre] = useState<string | null>(null);
+  const [carreraNombre, setCarreraNombre] = useState<string | null>(null);
 
   const [studentBySemester, setStudentBySemester] = useState<Record<string, StudentSemData>>({});
   const [teacherBySemester, setTeacherBySemester] = useState<Record<string, TeacherSemData>>({});
@@ -210,25 +153,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       if (user.role === 'student') {
-        const [catalog, gradesResp, attResp] = await Promise.all([
-          coursesService.getCourses(),
-          gradesService.getStudentGrades(user.id),
-          attendanceService.getStudentAttendance(user.id),
+        const [perfil, inscripciones, attResp] = await Promise.all([
+          studentsService.getMyProfile(),
+          studentsService.getCalificaciones(user.id_institucional),
+          studentsService.getAttendance(user.id_institucional),
         ]);
-        const courseMeta = new Map(catalog.map((c) => [c.id, c]));
+        setCarreraNombre(perfil.carrera?.nombre ?? null);
 
-        // No hay endpoint de "mis inscripciones": se revisa el roster de cada
-        // curso del catálogo para saber en cuáles está inscrito el estudiante.
-        const details = await Promise.all(catalog.map((c) => coursesService.getCourse(c.id)));
-        const enrolledIds = details
-          .filter((d) => (d.estudiantes ?? []).some((s) => s.id === user.id))
-          .map((d) => d.id);
+        const attByAsignatura = new Map(attResp.courses.map((c) => [c.id, c]));
 
-        const coursesBySemester = buildStudentSemesters(courseMeta, enrolledIds, gradesResp.courses, attResp.courses);
-        const historyBySemester = buildAttendanceHistory(attResp.courses, courseMeta);
+        // Agrupar por semestre académico de la asignatura
+        const bySemester: Record<string, StudentCourse[]> = {};
+        inscripciones.forEach((insc, idx) => {
+          const asig = insc.asignatura;
+          if (!asig) return;
+
+          const notasByActividad = new Map<string, number>();
+          for (const cal of insc.calificaciones ?? []) {
+            const nota = toNum(cal.nota);
+            if (nota != null) notasByActividad.set(cal.actividad_id, nota);
+          }
+
+          const att = attByAsignatura.get(asig.id);
+          const attendance = att?.attendance ?? 100;
+
+          const course: StudentCourse = {
+            id: asig.id,
+            name: asig.nombre,
+            code: asig.NRC,
+            teacher: asig.docente?.usuario?.nombre ?? '',
+            attendance,
+            credits: asig.pensum?.creditos ?? 0,
+            status: att?.status ?? (attendance < 80 ? 'alert' : 'active'),
+            color: PALETTE[idx % PALETTE.length],
+            cortes: buildCortes(asig, notasByActividad),
+          };
+          (bySemester[asig.semestre_academico ?? 'Sin semestre'] ??= []).push(course);
+        });
 
         const semMap: Record<string, StudentSemData> = {};
-        for (const [sem, courses] of Object.entries(coursesBySemester)) {
+        for (const [sem, courses] of Object.entries(bySemester)) {
           const overalls = courses.map((c) => courseOverall(c.cortes)).filter((v): v is number => v != null);
           const gpa = overalls.length ? overalls.reduce((s, v) => s + v, 0) / overalls.length : null;
           const attendances = courses.map((c) => c.attendance);
@@ -243,7 +207,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             riskLevel: riskLevel(gpa, attendanceRate),
             courses,
             notifications: buildNotifications(courses),
-            attendanceHistory: historyBySemester[sem] ?? [],
           };
         }
         setStudentBySemester(semMap);
@@ -251,54 +214,66 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const keys = Object.keys(semMap).sort();
         setSemestre((prev) => (prev && semMap[prev] ? prev : keys[keys.length - 1] ?? null));
       } else {
-        const courses = await coursesService.getCourses({ profesor_id: user.id });
-        const detailed = await Promise.all(courses.map((c) => coursesService.getCourse(c.id)));
-        const today = todayISO();
+        const perfil = await teachersService.getMyProfile();
+        const [subjects, dash] = await Promise.all([
+          teachersService.getMySubjects(perfil.id),
+          teachersService.getDashboard(perfil.id),
+        ]);
+        // El dashboard no trae semestre ni créditos: se cruzan desde /subjects
+        const subjectById = new Map(subjects.map((s) => [s.id, s]));
 
-        const withAttendance = await Promise.all(
-          detailed.map(async (c) => {
-            const records = await attendanceService.getCourseAttendance(c.id);
-            const byStudent = new Map<number, { total: number; present: number }>();
-            const todayMap: Record<number, boolean> = {};
-            for (const r of records) {
-              const agg = byStudent.get(r.estudiante_id) ?? { total: 0, present: 0 };
-              agg.total++;
-              if (r.presente) agg.present++;
-              byStudent.set(r.estudiante_id, agg);
-              if (r.fecha === today) todayMap[r.estudiante_id] = r.presente;
-            }
-            const students: TeacherStudent[] = (c.estudiantes ?? []).map((s) => {
-              const agg = byStudent.get(s.id);
-              const pct = agg && agg.total > 0 ? Math.round((agg.present / agg.total) * 100) : 100;
-              return {
-                id: s.id,
-                name: s.nombre,
-                email: s.email,
-                attendance: pct,
-                absences: agg ? agg.total - agg.present : 0,
-                status: attendanceStatus(pct),
-              };
+        // % de asistencia y faltas por estudiante (historial completo por asignatura).
+        // También se saca de aquí la asistencia de hoy: el campo presenteHoy del
+        // dashboard no distingue "ausente" de "sin registrar".
+        const hoy = todayISO();
+        const attLists = await Promise.all(dash.courses.map((c) => teachersService.getAsignaturaAttendance(c.id)));
+        const statsByInscripcion = new Map<string, { total: number; present: number; hoy: boolean | null }>();
+        for (const list of attLists) {
+          for (const insc of list) {
+            const regs = insc.asistencias ?? [];
+            const registroHoy = regs.find((a) => a.fecha === hoy);
+            statsByInscripcion.set(insc.id, {
+              total: regs.length,
+              present: regs.filter((a) => a.presente).length,
+              hoy: registroHoy ? registroHoy.presente : null,
             });
-            return {
-              semestreCodigo: c.semestre?.codigo ?? 'Sin semestre',
-              course: {
-                id: c.id,
-                name: c.nombre,
-                code: c.codigo,
-                group: c.grupo,
-                color: c.color,
-                credits: c.creditos,
-                students,
-                todayAttendance: todayMap,
-              } as TeacherCourse,
-            };
-          })
-        );
+          }
+        }
 
         const semMap: Record<string, TeacherSemData> = {};
-        for (const { semestreCodigo, course } of withAttendance) {
-          (semMap[semestreCodigo] ??= { courses: [] }).courses.push(course);
-        }
+        dash.courses.forEach((c, idx) => {
+          const meta = subjectById.get(c.id);
+          const sem = meta?.semestre_academico ?? 'Sin semestre';
+
+          const todayMap: Record<string, boolean> = {};
+          const students: TeacherStudent[] = c.students.map((s) => {
+            const agg = statsByInscripcion.get(s.inscripcion_id);
+            if (agg?.hoy != null) todayMap[s.inscripcion_id] = agg.hoy;
+            const pct = agg && agg.total > 0 ? Math.round((agg.present / agg.total) * 100) : 100;
+            return {
+              id: s.id,
+              inscripcionId: s.inscripcion_id,
+              name: s.name,
+              idInst: s.id_inst,
+              attendance: pct,
+              absences: agg ? agg.total - agg.present : 0,
+              status: attendanceStatus(pct),
+            };
+          });
+
+          const course: TeacherCourse = {
+            id: c.id,
+            name: c.name,
+            code: c.code,
+            color: PALETTE[idx % PALETTE.length],
+            credits: meta?.pensum?.creditos ?? 0,
+            cortes: [...c.cortes].sort((a, b) => a.numero_corte - b.numero_corte),
+            students,
+            todayAttendance: todayMap,
+          };
+          (semMap[sem] ??= { courses: [] }).courses.push(course);
+        });
+
         setTeacherBySemester(semMap);
         setStudentBySemester({});
         const keys = Object.keys(semMap).sort();
@@ -316,8 +291,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   const saveTodayAttendance = useCallback(
-    async (courseId: number, records: { estudiante_id: number; presente: boolean }[]) => {
-      await attendanceService.saveDayAttendance({ curso_id: courseId, fecha: todayISO(), records });
+    async (asignaturaId: string, records: { inscripcion_id: string; presente: boolean }[]) => {
+      await teachersService.saveDayAttendance({ asignatura_id: asignaturaId, fecha: todayISO(), records });
       await load();
     },
     [load]
@@ -343,12 +318,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       .toUpperCase();
     return {
       name,
-      idLabel: user ? String(user.id) : '',
-      sub: user?.carrera?.nombre ?? (user?.role === 'teacher' ? 'Docente' : 'Estudiante'),
+      idLabel: user?.id_institucional ?? '',
+      sub: carreraNombre ?? (user?.role === 'teacher' ? 'Docente' : 'Estudiante'),
       initials,
       avatarColor: user?.role === 'teacher' ? Colors.accent : Colors.purple,
     };
-  }, [user]);
+  }, [user, carreraNombre]);
 
   return (
     <DataContext.Provider
