@@ -102,4 +102,88 @@ const sendGradeNotification = async ({ studentName, studentEmail, subjectName, a
   }
 };
 
-module.exports = { sendAttendanceAlert, sendGradeNotification };
+// RF-26 — notifica al DOCENTE (no al estudiante) cuando un estudiante suyo
+// genera una alerta académica por nota (proyección baja o crítica).
+const sendTeacherRiskAlert = async ({
+  teacherName, teacherEmail, studentName, subjectName,
+  notaDefinitiva, notaMinimaRequerida, recuperable, tipo,
+}) => {
+  if (!process.env.RESEND_API_KEY) {
+    console.log('⚠️  RESEND_API_KEY no configurado — email omitido');
+    return false;
+  }
+  const color = tipo === 'critica' ? '#DC2626' : '#D97706';
+  const label = tipo === 'critica' ? 'CRÍTICA' : 'ADVERTENCIA';
+
+  const html = emailTemplate(`
+    <div style="padding:32px 40px;">
+      <div style="background:${color}15;border-left:4px solid ${color};padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1px;">Alerta académica ${label}</div>
+        <div style="font-size:20px;font-weight:700;color:${color};margin-top:4px;">${studentName}</div>
+      </div>
+      <p style="font-size:16px;color:#1E1B3A;margin:0 0 8px;">Hola, <strong>${teacherName}</strong></p>
+      <p style="font-size:14px;color:#6B6888;line-height:1.6;margin:0 0 20px;">
+        Un estudiante de <strong>${subjectName}</strong> tiene una proyección de nota que activó una alerta automática.
+      </p>
+      <div style="background:#f4f5fb;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+        <div style="font-size:11px;font-weight:700;color:#A8A5C0;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Nota definitiva actual</div>
+        <div style="font-size:24px;font-weight:700;color:${color};">${notaDefinitiva != null ? notaDefinitiva.toFixed(2) : '—'}</div>
+        ${notaMinimaRequerida != null ? `<div style="font-size:13px;color:#6B6888;margin-top:4px;">Necesita <strong>${notaMinimaRequerida.toFixed(2)}</strong> en lo pendiente para aprobar</div>` : ''}
+      </div>
+      ${recuperable
+        ? '<p style="font-size:13px;color:#059669;background:#f0fdf4;padding:10px 14px;border-radius:8px;margin:0 0 20px;">✓ Todavía es matemáticamente recuperable.</p>'
+        : '<p style="font-size:13px;color:#DC2626;background:#fef2f2;padding:10px 14px;border-radius:8px;margin:0 0 20px;">⛔ Ya no es matemáticamente recuperable.</p>'}
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/teacher/dashboard" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi dashboard →</a>
+    </div>`);
+
+  try {
+    await getResend().emails.send({
+      from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
+      to:      teacherEmail,
+      subject: `Alerta ${label.toLowerCase()}: ${studentName} en ${subjectName}`,
+      html,
+    });
+    console.log(`📧 Alerta de docente enviada a ${teacherEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Error email docente:', err.message);
+    return false;
+  }
+};
+
+// RF-05 — enlace de restablecimiento de contraseña
+const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
+  if (!process.env.RESEND_API_KEY) {
+    console.log('⚠️  RESEND_API_KEY no configurado — email omitido');
+    return false;
+  }
+
+  const html = emailTemplate(`
+    <div style="padding:32px 40px;">
+      <p style="font-size:16px;color:#1E1B3A;margin:0 0 8px;">Hola, <strong>${name}</strong></p>
+      <p style="font-size:14px;color:#6B6888;line-height:1.6;margin:0 0 20px;">
+        Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú, haz clic en el siguiente botón.
+        Este enlace expira en 30 minutos.
+      </p>
+      <a href="${resetUrl}" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Restablecer contraseña →</a>
+      <p style="font-size:12px;color:#A8A5C0;line-height:1.6;margin:20px 0 0;">
+        Si no solicitaste esto, puedes ignorar este correo — tu contraseña actual seguirá siendo válida.
+      </p>
+    </div>`);
+
+  try {
+    await getResend().emails.send({
+      from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
+      to:      email,
+      subject: 'Restablece tu contraseña de Tracely',
+      html,
+    });
+    console.log(`📧 Email de restablecimiento enviado a ${email}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Error email reset:', err.message);
+    return false;
+  }
+};
+
+module.exports = { sendAttendanceAlert, sendGradeNotification, sendTeacherRiskAlert, sendPasswordResetEmail };

@@ -1,17 +1,38 @@
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from '../layout/Sidebar';
 import Topbar  from '../layout/Topbar';
 import { useAuth }       from '../../context/AuthContext';
 import { useAppContext } from '../../context/AppContext';
 
 const PAGE_TITLES = {
-  dashboard:  'Dashboard',
-  grades:     'Notas y Calificaciones',
-  attendance: 'Control de Asistencia',
+  dashboard:   'Dashboard',
+  grades:      'Notas y Calificaciones',
+  attendance:  'Control de Asistencia',
+  curriculum:  'Mi Carrera',
+  alerts:      'Mis Alertas',
+  courses:     'Mis Cursos',
 };
 
+// Deduce la página activa desde la URL real — única fuente de verdad
+function pageFromPath(pathname) {
+  if (pathname.includes('/grades'))     return 'grades';
+  if (pathname.includes('/attendance')) return 'attendance';
+  if (pathname.includes('/curriculum')) return 'curriculum';
+  if (pathname.includes('/alerts'))     return 'alerts';
+  if (pathname.includes('/courses'))    return 'courses';
+  return 'dashboard';
+}
+
 export default function MainLayout({ children }) {
-  const { user, logout }                        = useAuth();
-  const { semestre, setSemestre, page, setPage } = useAppContext();
+  const { user, logout }        = useAuth();
+  const { semestre, setSemestre, semestres } = useAppContext();
+  const location = useLocation();
+  const page = pageFromPath(location.pathname);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Cerrar el menú móvil al cambiar de página
+  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   const role = user?.role ?? 'student';
 
@@ -29,21 +50,24 @@ export default function MainLayout({ children }) {
 
   return (
     <div className="app">
+      <div className={`sidebar-backdrop ${mobileNavOpen ? 'show' : ''}`} onClick={() => setMobileNavOpen(false)} />
       <Sidebar
         role={role}
         page={page}
-        setPage={setPage}
         userData={userData}
         unread={0}
         onLogout={logout}
+        mobileOpen={mobileNavOpen}
       />
       <main className="main">
         <Topbar
           semestre={semestre}
           setSemestre={setSemestre}
+          semestres={semestres}
           role={role}
           pageTitle={PAGE_TITLES[page] ?? 'Dashboard'}
           userName={userData.name}
+          onMenuClick={() => setMobileNavOpen((v) => !v)}
         />
         <div className="content">
           {children}

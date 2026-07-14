@@ -25,10 +25,18 @@ const Usuario = sequelize.define('usuario', {
     allowNull: false,
     defaultValue: 'estudiante',
   },
+  reset_token: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  reset_token_expira: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'usuario',
   defaultScope: {
-    attributes: { exclude: ['contrasena_hash'] },
+    attributes: { exclude: ['contrasena_hash', 'reset_token', 'reset_token_expira'] },
   },
   scopes: {
     withPassword: { attributes: {} },

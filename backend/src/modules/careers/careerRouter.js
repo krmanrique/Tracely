@@ -7,9 +7,10 @@ const router = express.Router();
 // GET /api/careers — listar todas las carreras
 router.get('/', async (req, res) => {
   try {
-    const careers = await Careers.findAll({ where: { activa: true } });
+    const careers = await Careers.findAll();
     res.json(careers);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener carreras' });
   }
 });

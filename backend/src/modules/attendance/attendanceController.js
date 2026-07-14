@@ -8,6 +8,9 @@ const attendanceController = {
       const { estudianteId } = req.params;
       const { semestre }     = req.query;
 
+      if (req.user.rol === 'estudiante' && req.user.id !== estudianteId)
+        return res.status(403).json({ error: 'No autorizado' });
+
       const estudiante = await Estudiante.findOne({ where: { usuario_id: estudianteId } });
       if (!estudiante) return res.json({ courses: [] });
 
@@ -46,7 +49,25 @@ const attendanceController = {
         };
       });
 
-      res.json({ courses: result });
+      // Historial mensual real: agrupa TODOS los registros de asistencia del
+      // estudiante (todas las materias) por mes calendario (a partir de
+      // Asistencia.fecha), no una simulación aleatoria.
+      const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const porMes = {};
+      inscripciones.forEach((insc) => {
+        insc.asistencias.forEach((a) => {
+          const key = a.fecha.slice(0, 7); // 'YYYY-MM'
+          if (!porMes[key]) porMes[key] = { total: 0, presentes: 0 };
+          porMes[key].total++;
+          if (a.presente) porMes[key].presentes++;
+        });
+      });
+      const attendanceHistory = Object.keys(porMes).sort().map((key) => ({
+        month: MESES[Number(key.slice(5, 7)) - 1] ?? key,
+        rate: Math.round((porMes[key].presentes / porMes[key].total) * 100),
+      }));
+
+      res.json({ courses: result, attendanceHistory });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Error al obtener asistencia' });

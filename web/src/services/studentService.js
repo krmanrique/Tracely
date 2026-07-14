@@ -21,10 +21,10 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
   if (!inscRes.ok) throw new Error('Error al cargar datos del semestre');
 
   const inscripciones = await inscRes.json();
-  const attData       = attRes.ok ? await attRes.json() : { courses: [] };
+  const attData       = attRes.ok ? await attRes.json() : { courses: [], attendanceHistory: [] };
   const attMap        = Object.fromEntries((attData.courses ?? []).map((c) => [c.id, c]));
 
-  const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED'];
+  const colors = ['#1C3992', '#059669', '#D97706', '#DC2626', '#4861B6'];
 
   // Construir courses con estructura completa
   const courses = inscripciones.map((insc, idx) => {
@@ -48,17 +48,9 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
       }),
     }));
 
-    // Calcular promedio general del curso
-    let suma = 0, total = 0;
-    cortesFormateados.forEach((ct) => {
-      const notasCorte = ct.actividades.filter((a) => a.value != null).map((a) => a.value);
-      if (notasCorte.length > 0) {
-        const avgCorte = notasCorte.reduce((a, b) => a + b, 0) / notasCorte.length;
-        suma  += avgCorte * (ct.weight / 100);
-        total += ct.weight / 100;
-      }
-    });
-    const gpaCorso = total > 0 ? Math.round((suma / total) * 10) / 10 : null;
+    // Promedio general del curso: viene ya calculado del backend (gradeMath.js),
+    // única fuente de verdad — evita recalcular con una fórmula distinta aquí.
+    const gpaCorso = insc.nota_definitiva_calculada ?? null;
 
     return {
       id:         asig?.id,
@@ -72,6 +64,8 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
       cortes:     cortesFormateados,
       gpa:        gpaCorso,
       inscripcionId: insc.id,
+      notaMinimaRequerida: insc.nota_minima_requerida ?? null,
+      recuperable:         insc.recuperable ?? true,
     };
   });
 
@@ -94,12 +88,9 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
     read:     false,
   }));
 
-  // Historial de asistencia mensual (simulado desde los datos reales)
-  const meses = ['Ago','Sep','Oct','Nov','Dic'];
-  const attendanceHistory = meses.map((month) => ({
-    month,
-    rate: attendanceRate ? Math.min(100, attendanceRate + Math.floor(Math.random() * 10) - 5) : 85,
-  }));
+  // Historial de asistencia mensual real, calculado por el backend a partir
+  // de los registros de Asistencia (no una simulación).
+  const attendanceHistory = attData.attendanceHistory ?? [];
 
   return {
     gpa,

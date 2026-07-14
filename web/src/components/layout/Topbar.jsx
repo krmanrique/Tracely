@@ -1,8 +1,8 @@
-import { semestres } from "../../data/mockData";
+import { Menu } from "lucide-react";
 import logo from "../../assets/unicatolica-svg.svg";
 import tracelyLogo from "../../assets/logo.svg"
 
-export default function Topbar({ semestre, setSemestre, pageTitle, userName }) {
+export default function Topbar({ semestre, setSemestre, semestres = [], pageTitle, userName, onMenuClick }) {
   return (
     <div className="topbar">
       {/* Izquierda: título de página + info del usuario */}
@@ -11,13 +11,16 @@ export default function Topbar({ semestre, setSemestre, pageTitle, userName }) {
           display: "flex", alignItems: "center", gap: 10,
           marginBottom: 5, alignSelf: "flex-start"
         }}>
+          <button className="hamburger-btn" onClick={onMenuClick} aria-label="Abrir menú">
+            <Menu size={20} />
+          </button>
           <img
             src={tracelyLogo}
             alt="Tracely"
             style={{ width: 32, height: 32, borderRadius: 8 }}
           />
           <span style={{
-            fontSize: 18, fontWeight: 700, color: "#7159b4", letterSpacing: "-0.3px"
+            fontSize: 18, fontWeight: 700, color: "#1C3992", letterSpacing: "-0.3px"
           }}>
             Tracely
           </span>

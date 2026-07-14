@@ -19,6 +19,7 @@ const inscripcionRouter  = require('./modules/inscripciones/inscripcionRouter');
 const calificacionRouter = require('./modules/calificaciones/calificacionRouter');
 const attendanceRouter   = require('./modules/attendance/attendanceRouter');
 const alertaRouter       = require('./modules/alertas/alertaRouter');
+const adminRouter        = require('./modules/admin/adminRouter');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,7 @@ app.use('/api/inscripciones',  inscripcionRouter);
 app.use('/api/calificaciones', calificacionRouter);
 app.use('/api/attendance',     attendanceRouter);
 app.use('/api/alertas',        alertaRouter);
+app.use('/api/admin',          adminRouter);
 
 app.use((req, res) =>
   res.status(404).json({ error: `Ruta ${req.method} ${req.path} no encontrada` })

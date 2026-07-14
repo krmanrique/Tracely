@@ -33,15 +33,15 @@ export default function GradesScreen() {
 
   const course = courses.find((c) => c.id === selectedId) ?? courses[0];
   const corte = course.cortes.find((c) => c.id === activeCorte) ?? course.cortes[0];
-  const cvg = corteAvg(corte.actividades);
-  const overall = courseOverall(course.cortes);
+  const cvg = corte.notaCorte ?? corteAvg(corte.actividades);
+  const overall = course.notaDefinitiva ?? courseOverall(course.cortes);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
         {courses.map((c) => {
-          const ov = courseOverall(c.cortes);
+          const ov = c.notaDefinitiva ?? courseOverall(c.cortes);
           const isActive = selectedId === c.id;
           return (
             <TouchableOpacity
@@ -79,7 +79,7 @@ export default function GradesScreen() {
 
         <View style={styles.corteRow}>
           {course.cortes.map((ct) => {
-            const avg = corteAvg(ct.actividades);
+            const avg = ct.notaCorte ?? corteAvg(ct.actividades);
             const isActive = activeCorte === ct.id;
             return (
               <TouchableOpacity
@@ -141,7 +141,7 @@ export default function GradesScreen() {
       <Card>
         <Text style={[styles.sectionTitle, { marginBottom: Space.md }]}>Resumen por Corte</Text>
         {course.cortes.map((ct) => {
-          const avg = corteAvg(ct.actividades);
+          const avg = ct.notaCorte ?? corteAvg(ct.actividades);
           const done = ct.actividades.filter((a) => a.value != null).length;
           return (
             <View key={ct.id} style={styles.summaryRow}>
@@ -164,6 +164,23 @@ export default function GradesScreen() {
             {overall != null ? overall.toFixed(2) : '—'}
           </Text>
         </View>
+
+        {course.notaMinimaRequerida != null && (
+          <View style={[
+            styles.minReqBox,
+            { backgroundColor: course.recuperable ? 'rgba(254,147,0,0.08)' : 'rgba(220,38,38,0.08)' },
+          ]}>
+            <View>
+              <Text style={styles.minReqLabel}>Nota mínima requerida en lo pendiente</Text>
+              <Text style={[styles.minReqVal, { color: course.recuperable ? Colors.accent : Colors.red }]}>
+                {Math.max(0, course.notaMinimaRequerida).toFixed(2)}
+              </Text>
+            </View>
+            <Text style={[styles.minReqBadge, { color: course.recuperable ? Colors.green : Colors.red }]}>
+              {course.recuperable ? '✓ Recuperable' : '✗ No recuperable'}
+            </Text>
+          </View>
+        )}
       </Card>
 
       <View style={{ height: Space.xl }} />
@@ -244,4 +261,12 @@ const styles = StyleSheet.create({
   },
   summaryTotalLabel: { fontSize: Font.base, fontWeight: '600', color: Colors.text2 },
   summaryTotalVal: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+
+  minReqBox: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: Space.md, padding: Space.md, borderRadius: Radius.md,
+  },
+  minReqLabel: { fontSize: Font.xs, fontWeight: '700', color: Colors.text2, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
+  minReqVal: { fontSize: Font.lg, fontWeight: '700' },
+  minReqBadge: { fontSize: Font.xs, fontWeight: '700' },
 });

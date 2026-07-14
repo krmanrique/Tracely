@@ -32,6 +32,11 @@ const Asignatura = sequelize.define('asignatura', {
     type: DataTypes.STRING,  // ej: "2025-1"
     allowNull: false,
   },
+  umbral_advertencia: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    defaultValue: 3.0,
+  },
 }, {
   tableName: 'asignatura',
 });

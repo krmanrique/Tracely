@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Colors } from '../constants/theme';
-import { courseOverall, riskLevel, attendanceStatus, todayISO, RiskLevel, StudentStatus, Corte as CorteType } from '../utils/helpers';
+import { riskLevel, attendanceStatus, todayISO, RiskLevel, StudentStatus, Corte as CorteType } from '../utils/helpers';
 import { toNum } from '../services/apiTypes';
 import type { ApiAsignatura, ApiCorte } from '../services/apiTypes';
 import * as studentsService from '../services/studentsService';
@@ -28,6 +28,9 @@ export interface StudentCourse {
   status: 'active' | 'alert';
   color: string;
   cortes: CorteType[];
+  notaDefinitiva: number | null;      // calculado por el backend (gradeMath.js)
+  notaMinimaRequerida: number | null;
+  recuperable: boolean;
 }
 
 export interface StudentSemData {
@@ -102,6 +105,8 @@ function buildCortes(asignatura: ApiAsignatura, notasByActividad: Map<string, nu
       weight: toNum(a.porcentaje_en_corte),
       value: notasByActividad.get(a.id) ?? null,
     })),
+    notaCorte: toNum(c.nota_corte),
+    completo: c.corte_completo ?? false,
   }));
 }
 
@@ -187,13 +192,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             status: att?.status ?? (attendance < 80 ? 'alert' : 'active'),
             color: PALETTE[idx % PALETTE.length],
             cortes: buildCortes(asig, notasByActividad),
+            notaDefinitiva: toNum(insc.nota_definitiva_calculada),
+            notaMinimaRequerida: toNum(insc.nota_minima_requerida),
+            recuperable: insc.recuperable ?? true,
           };
           (bySemester[asig.semestre_academico ?? 'Sin semestre'] ??= []).push(course);
         });
 
         const semMap: Record<string, StudentSemData> = {};
         for (const [sem, courses] of Object.entries(bySemester)) {
-          const overalls = courses.map((c) => courseOverall(c.cortes)).filter((v): v is number => v != null);
+          const overalls = courses.map((c) => c.notaDefinitiva).filter((v): v is number => v != null);
           const gpa = overalls.length ? overalls.reduce((s, v) => s + v, 0) / overalls.length : null;
           const attendances = courses.map((c) => c.attendance);
           const attendanceRate = attendances.length

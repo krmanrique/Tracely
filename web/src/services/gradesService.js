@@ -44,6 +44,8 @@ export const getGrades = async (estudianteId, semestre) => {
         label:      `Corte ${corte.numero_corte}`,
         weight:     corte.peso_porcentual,
         actividades,
+        notaCorte:  corte.nota_corte ?? null,
+        completo:   corte.corte_completo ?? false,
       };
     });
 
@@ -58,11 +60,27 @@ export const getGrades = async (estudianteId, semestre) => {
       code:       asig?.NRC ?? '',
       teacher:    asig?.docente?.usuario?.nombre ?? '',
       credits:    asig?.pensum?.creditos ?? 0,
-      color:      '#4F46E5',
+      color:      '#1C3992',
       attendance,
       status:     attendance >= 80 ? 'active' : 'alert',
       cortes:     cortesFormateados,
       inscripcionId: insc.id,
+      notaDefinitivaCalculada: insc.nota_definitiva_calculada ?? null,
+      notaMinimaRequerida:     insc.nota_minima_requerida ?? null,
+      recuperable:             insc.recuperable ?? true,
     };
   });
+};
+
+/**
+ * Progreso curricular completo (RF-16): todas las materias del pensum de
+ * la carrera del estudiante, clasificadas en aprobada/en_curso/pendiente.
+ */
+export const getPensum = async (estudianteId) => {
+  const token = getToken();
+  const res = await fetch(`${API}/students/${estudianteId}/pensum`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Error al obtener el progreso curricular');
+  return res.json();
 };

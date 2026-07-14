@@ -15,6 +15,11 @@ export interface StudentInscripcion {
   estado: string;
   asignatura?: ApiAsignatura | null;
   calificaciones?: ApiCalificacion[];
+  // Calculados por el backend (gradeMath.js) — única fuente de verdad,
+  // no se recalculan en el cliente.
+  nota_definitiva_calculada?: number | string | null;
+  nota_minima_requerida?: number | string | null;
+  recuperable?: boolean;
 }
 
 export interface StudentAttendanceCourse {
