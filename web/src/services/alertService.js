@@ -8,6 +8,7 @@
 // GET /api/calificaciones/estudiante/:id (para leer la nota proyectada
 // actual de cada materia, que Alerta no guarda de forma persistente).
 import { getToken } from '../context/AuthContext';
+import { getAttendance } from './attendanceService';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -15,6 +16,11 @@ function authHeaders() {
   return { Authorization: `Bearer ${getToken()}` };
 }
 
+// Alertas unificadas: notas (tabla Alerta, persistida) + asistencia baja
+// (calculada en vivo, sin persistir — ver auditoría: el flujo de Alerta por
+// asistencia es poco confiable porque se resuelve solo por nota). Ambas
+// fuentes se combinan aquí para que el Dashboard y "Mis Alertas" siempre
+// muestren exactamente lo mismo.
 export const getStudentAlerts = async (estudianteId, semestre) => {
   const headers = authHeaders();
 
@@ -22,9 +28,10 @@ export const getStudentAlerts = async (estudianteId, semestre) => {
   if (!meRes.ok) throw new Error('Error al cargar el perfil del estudiante');
   const me = await meRes.json();
 
-  const [alertasRes, califRes] = await Promise.all([
+  const [alertasRes, califRes, attendanceCourses] = await Promise.all([
     fetch(`${API}/alertas/estudiante/${me.id}`, { headers }),
     fetch(`${API}/calificaciones/estudiante/${estudianteId}${semestre ? `?semestre=${semestre}` : ''}`, { headers }),
+    getAttendance(estudianteId, semestre).catch(() => []),
   ]);
   if (!alertasRes.ok) throw new Error('Error al cargar las alertas');
 
@@ -32,7 +39,7 @@ export const getStudentAlerts = async (estudianteId, semestre) => {
   const calificaciones = califRes.ok ? await califRes.json() : [];
   const inscripcionPorId = Object.fromEntries(calificaciones.map((c) => [c.id, c]));
 
-  return alertas.map((a) => {
+  const alertasNota = alertas.map((a) => {
     const insc = inscripcionPorId[a.inscripcion_id];
     const cortesPendientes = (insc?.asignatura?.cortes ?? [])
       .filter((c) => !c.corte_completo)
@@ -43,6 +50,7 @@ export const getStudentAlerts = async (estudianteId, semestre) => {
       id: a.id,
       tipo: a.tipo,
       estado: a.estado,
+      categoria: 'nota',
       notaMinimaRequerida: a.nota_minima_requerida,
       recuperable: a.es_recuperable,
       // updatedAt refleja la última reevaluación real (cada vez que se
@@ -57,4 +65,28 @@ export const getStudentAlerts = async (estudianteId, semestre) => {
       pesoPendienteTotal,
     };
   });
+
+  // Alertas de asistencia: se calculan en vivo (no dependen de una fila
+  // Alerta persistida) para que nunca queden obsoletas ni se pierdan por el
+  // findOrCreate/reconciliación del sistema de alertas de nota.
+  const alertasAsistencia = (attendanceCourses ?? [])
+    .filter((c) => c.attendance < 80)
+    .map((c) => ({
+      id: `asistencia-${c.id}`,
+      tipo: c.attendance < 70 ? 'critica' : 'advertencia',
+      estado: 'activa',
+      categoria: 'asistencia',
+      notaMinimaRequerida: null,
+      recuperable: true,
+      fecha: new Date().toISOString(),
+      asignaturaId: c.id,
+      asignaturaNombre: c.name ?? 'Materia',
+      asignaturaNRC: c.code ?? '',
+      notaProyectada: null,
+      cortesPendientes: [],
+      pesoPendienteTotal: 0,
+      attendance: c.attendance,
+    }));
+
+  return [...alertasNota, ...alertasAsistencia];
 };

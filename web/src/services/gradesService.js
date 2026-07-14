@@ -1,5 +1,6 @@
 // services/gradesService.js
 import { getToken } from '../context/AuthContext';
+import { getAttendance } from './attendanceService';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -10,14 +11,21 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 export const getGrades = async (estudianteId, semestre) => {
   const token = getToken();
 
-  const res = await fetch(
-    `${API}/calificaciones/estudiante/${estudianteId}?semestre=${semestre}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const [res, attendanceCourses] = await Promise.all([
+    fetch(
+      `${API}/calificaciones/estudiante/${estudianteId}?semestre=${semestre}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    ),
+    getAttendance(estudianteId, semestre).catch(() => []),
+  ]);
 
   if (!res.ok) throw new Error('Error al obtener calificaciones');
 
   const inscripciones = await res.json();
+  // La consulta de calificaciones no incluye asistencia — se cruza aquí con
+  // el endpoint de asistencia (misma fuente real que usa /student/attendance)
+  // en vez de asumir 100% cuando no hay dato.
+  const attendanceById = Object.fromEntries((attendanceCourses ?? []).map((c) => [c.id, c.attendance]));
 
   // Transformar al formato que espera el frontend (GradesPages.jsx)
   return inscripciones.map((insc) => {
@@ -36,6 +44,7 @@ export const getGrades = async (estudianteId, semestre) => {
           tipo:      act.tipo,
           value:     calificacion?.nota ?? null,
           peso:      act.porcentaje_en_corte,
+          fechaRegistro: calificacion?.fecha_registro ?? null,
         };
       }) ?? [];
 
@@ -49,10 +58,7 @@ export const getGrades = async (estudianteId, semestre) => {
       };
     });
 
-    // Calcular asistencia desde inscripciones si viene
-    const totalAsis    = insc.asistencias?.length ?? 0;
-    const presentesAsis = insc.asistencias?.filter((a) => a.presente).length ?? 0;
-    const attendance   = totalAsis > 0 ? Math.round((presentesAsis / totalAsis) * 100) : 100;
+    const attendance = attendanceById[insc.asignatura_id] ?? 100;
 
     return {
       id:         insc.asignatura_id,

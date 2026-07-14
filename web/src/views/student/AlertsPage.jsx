@@ -21,6 +21,9 @@ function severityRank(a) {
 // Mensaje en lenguaje llano — reemplaza el número aislado ("nota mínima
 // requerida: 4.9") por una frase que dice qué pasa y qué hacer.
 function buildMessage(a) {
+  if (a.categoria === 'asistencia') {
+    return `Tu asistencia en esta materia es del ${a.attendance}%, por debajo del mínimo del 80% requerido.`;
+  }
   if (!a.recuperable) {
     return 'Ya no es matemáticamente posible aprobar esta materia por notas. Habla con tu docente o con coordinación académica.';
   }
@@ -132,7 +135,7 @@ export default function AlertsPage({ estudianteId, semestre, onNavigate }) {
                         {TIPO_LABEL[a.tipo] ?? a.tipo}
                       </span>
                       <span
-                        className={activa ? 'badge badge-risk' : 'badge'}
+                        className={activa ? 'badge badge-active' : 'badge'}
                         style={activa ? undefined : { background: 'var(--border2)', color: 'var(--text3)' }}
                       >
                         {activa ? 'Activa' : 'Resuelta'}
@@ -147,32 +150,43 @@ export default function AlertsPage({ estudianteId, semestre, onNavigate }) {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Nota proyectada</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: body }}>
-                          {a.notaProyectada != null ? a.notaProyectada.toFixed(2) : '—'}
+                      {a.categoria === 'asistencia' ? (
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Asistencia actual</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: body }}>
+                            {a.attendance}%
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Nota mínima requerida</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: accent }}>
-                          {a.notaMinimaRequerida != null ? Math.max(0, a.notaMinimaRequerida).toFixed(2) : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Recuperabilidad</div>
-                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 4, color: activa ? (a.recuperable ? 'var(--green)' : 'var(--red)') : 'var(--text3)' }}>
-                          {a.recuperable ? <><Check size={13} /> Recuperable</> : <><Ban size={13} /> No recuperable</>}
-                        </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Nota proyectada</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: body }}>
+                              {a.notaProyectada != null ? a.notaProyectada.toFixed(2) : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Nota mínima requerida</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: accent }}>
+                              {a.notaMinimaRequerida != null ? Math.max(0, a.notaMinimaRequerida).toFixed(2) : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Recuperabilidad</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 4, color: activa ? (a.recuperable ? 'var(--green)' : 'var(--red)') : 'var(--text3)' }}>
+                              {a.recuperable ? <><Check size={13} /> Recuperable</> : <><Ban size={13} /> No recuperable</>}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                     {onNavigate && a.asignaturaId && (
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={() => onNavigate('grades', a.asignaturaId)}
+                        onClick={() => onNavigate(a.categoria === 'asistencia' ? 'attendance' : 'grades', a.asignaturaId)}
                         style={{ flexShrink: 0 }}
                       >
-                        Ver notas <ArrowRight size={13} />
+                        {a.categoria === 'asistencia' ? 'Ver asistencia' : 'Ver notas'} <ArrowRight size={13} />
                       </button>
                     )}
                   </div>

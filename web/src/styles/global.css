@@ -1,5 +1,17 @@
 @import './auth.css';
 
+/* Geist auto-hospedada (no CDN) — un solo archivo variable con cobertura
+   Unicode completa (incluye tildes/ñ), evita cualquier parpadeo de glifo
+   que dependiera de la negociación de subconjuntos del CDN de Google Fonts. */
+@font-face {
+  font-family: 'Geist';
+  src: url('../assets/fonts/Geist-Variable.woff2') format('woff2-variations'),
+       url('../assets/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after {
@@ -1409,13 +1421,17 @@ select.input-field option {
 .settings-input {
   flex: 1;
   background: var(--bg3);
-  border: 1.5px solid var(--accent);
+  border: 1.5px solid var(--border2);
   border-radius: 8px;
   padding: 7px 10px;
   font-size: 14px;
   font-family: var(--font);
   color: var(--text);
   outline: none;
+  transition: border-color 0.15s;
+}
+.settings-input:focus {
+  border-color: var(--accent);
 }
 
 .settings-save-inline {

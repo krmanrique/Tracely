@@ -188,7 +188,7 @@ const studentController = {
   // <select>).
   getAll: async (req, res) => {
     try {
-      const { search, carrera_id } = req.query;
+      const { search, carrera_id, asignatura_id } = req.query;
       const whereUsuario = search ? {
         [Op.or]: [
           { nombre: { [Op.iLike]: `%${search}%` } },
@@ -248,6 +248,9 @@ const studentController = {
           gpa:        contGpa > 0 ? Math.round((sumaGpa / contGpa) * 10) / 10 : null,
           attendance: totalAsist > 0 ? Math.round((presentesAsist / totalAsist) * 100) : null,
           risk:       peorAlerta === 'critica' ? 'high' : peorAlerta === 'advertencia' ? 'medium' : 'low',
+          yaInscrito: asignatura_id
+            ? (est.inscripciones ?? []).some((i) => i.asignatura_id === asignatura_id)
+            : undefined,
         };
       });
 

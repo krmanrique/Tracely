@@ -1,5 +1,6 @@
 const { Asistencia, Inscripcion, Asignatura, Estudiante, Usuario, Pensum, Docente, Alerta } = require('../../models');
 const { sendAttendanceAlert } = require('../../services/emailService');
+const socketService = require('../../services/socketService');
 
 const attendanceController = {
 
@@ -135,11 +136,24 @@ const attendanceController = {
             const presentes = insc.asistencias.filter((a) => a.presente).length;
             const pct       = total > 0 ? Math.round((presentes / total) * 100) : 100;
 
-            if (pct < 80) {
+            // Estado antes de este guardado (excluyendo el registro de hoy)
+            // vs. después — el mismo patrón que usa evaluarAlertaPorNota,
+            // para no depender de si la fila Alerta se creó o no (esa fila
+            // puede no crearse si ya existe una alerta activa por otro
+            // motivo, ej. de nota, dejando al estudiante sin notificación
+            // en tiempo real aunque su asistencia sí haya cruzado el umbral).
+            const asistenciasSinHoy = insc.asistencias.filter((a) => a.fecha !== fecha);
+            const totalAntes    = asistenciasSinHoy.length;
+            const presentesAntes = asistenciasSinHoy.filter((a) => a.presente).length;
+            const pctAntes      = totalAntes > 0 ? Math.round((presentesAntes / totalAntes) * 100) : 100;
+            const tipoAntes     = pctAntes < 70 ? 'critica' : pctAntes < 80 ? 'advertencia' : null;
+            const tipoDespues   = pct < 70 ? 'critica' : pct < 80 ? 'advertencia' : null;
+
+            if (tipoDespues) {
               // Crear o actualizar alerta
               await Alerta.findOrCreate({
                 where: { inscripcion_id, estado: 'activa' },
-                defaults: { tipo: pct < 70 ? 'critica' : 'advertencia', es_recuperable: true },
+                defaults: { tipo: tipoDespues, es_recuperable: true },
               });
 
               // Enviar email
@@ -150,6 +164,19 @@ const attendanceController = {
                 attendancePercent: pct,
                 isRecuperable:     pct >= 70,
               });
+
+              // Notificar en tiempo real solo si recién cruzó el umbral o
+              // empeoró de severidad — no en cada guardado mientras sigue
+              // igual de baja.
+              if (tipoDespues !== tipoAntes) {
+                socketService.emitToStudent(insc.estudiante?.usuario_id, 'alerta:nueva', {
+                  asignaturaId: insc.asignatura_id,
+                  asignaturaNombre: insc.asignatura?.nombre ?? '',
+                  tipo: tipoDespues,
+                  categoria: 'asistencia',
+                  attendance: pct,
+                });
+              }
             }
           } catch (e) {
             console.error('Error en notificación:', e.message);

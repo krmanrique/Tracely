@@ -5,7 +5,7 @@ import { attColor } from '../../utils/helpers';
 import { getAttendance } from '../../services/attendanceService';
 import { fadeInUp, staggerContainer, staggerItem } from '../../utils/motionVariants';
 
-export default function AttendanceView({ estudianteId, semestre, semData }) {
+export default function AttendanceView({ estudianteId, semestre, semData, initialCourseId }) {
   const [courses, setCourses]   = useState(semData?.courses ?? []);
   const [loading, setLoading]   = useState(!semData);
   const [error, setError]       = useState(null);
@@ -51,7 +51,12 @@ export default function AttendanceView({ estudianteId, semestre, semData }) {
       {/* Cards grid */}
       <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-4" style={{ marginBottom: 18 }}>
         {courses.map((c) => (
-          <motion.div key={c.id} variants={staggerItem} className="card" style={{ padding: 18 }}>
+          <motion.div
+            key={c.id}
+            variants={staggerItem}
+            className="card"
+            style={{ padding: 18, ...(String(c.id) === String(initialCourseId) ? { border: '2px solid var(--accent)' } : {}) }}
+          >
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? '#1C3992', marginBottom: 8 }} />
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>{c.name}</div>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-1px', color: attColor(c.attendance) }}>

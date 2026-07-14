@@ -159,10 +159,14 @@ export default function ProgramDetailView({ program, onBack, onToast }) {
               onSelect={handleAddStudentToProgram}
               fetchResults={(q) => getStudents(q)}
               getLabel={(s) => `${s.name} (${s.usuarioId})`}
+              isItemDisabled={(s) => s.carreraId === program.id}
               renderItem={(s) => (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{s.usuarioId} · {s.program}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {s.carreraId === program.id && <span className="badge badge-active" style={{ flexShrink: 0 }}>Ya en el programa</span>}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{s.usuarioId} · {s.correo}</div>
+                  </div>
                 </div>
               )}
               placeholder="Busca un estudiante existente por nombre, ID o correo..."

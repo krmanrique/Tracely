@@ -68,7 +68,7 @@ function StudentLayout({ View }) {
         semestre={semestre}
         initialCourseId={searchParams.get('course')}
         onNavigate={goTo}
-        onNotifClick={(courseId) => goTo('grades', courseId)}
+        onNotifClick={(courseId, categoria) => goTo(categoria === 'asistencia' ? 'attendance' : 'grades', courseId)}
       />
     </MainLayout>
   );

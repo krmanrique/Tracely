@@ -14,6 +14,7 @@ export default function SearchSelect({
   placeholder = 'Buscar...',
   minChars = 1,
   disabled = false,
+  isItemDisabled,
 }) {
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState([]);
@@ -114,16 +115,23 @@ export default function SearchSelect({
                 Sin resultados
               </div>
             ) : (
-              results.map((item) => (
-                <div
-                  key={item.id ?? getLabel(item)}
-                  onClick={() => handleSelect(item)}
-                  style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  {renderItem ? renderItem(item) : <span style={{ fontSize: 13 }}>{getLabel(item)}</span>}
-                </div>
-              ))
+              results.map((item) => {
+                const itemDisabled = isItemDisabled?.(item) ?? false;
+                return (
+                  <div
+                    key={item.id ?? getLabel(item)}
+                    onClick={() => !itemDisabled && handleSelect(item)}
+                    style={{
+                      padding: '10px 14px', borderBottom: '1px solid var(--border)',
+                      cursor: itemDisabled ? 'not-allowed' : 'pointer',
+                      opacity: itemDisabled ? 0.5 : 1,
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    {renderItem ? renderItem(item) : <span style={{ fontSize: 13 }}>{getLabel(item)}</span>}
+                  </div>
+                );
+              })
             )}
           </motion.div>
         )}

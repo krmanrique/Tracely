@@ -207,8 +207,14 @@ export default function GradePanel({ course, onClose, onSaved }) {
       const payload = [];
       students.forEach((s) => {
         activities.forEach((act) => {
-          const nota = notas[s.inscripcionId]?.[act.id];
-          if (nota != null) payload.push({ inscripcion_id: s.inscripcionId, actividad_id: act.id, nota });
+          const nota = notas[s.inscripcionId]?.[act.id] ?? null;
+          const notaInicial = notasIniciales.current[s.inscripcionId]?.[act.id] ?? null;
+          // Enviar si hay una nota, o si se borró una que existía antes
+          // (nota null pero notaInicial no) — si no, "borrar" nunca llegaba
+          // al backend y la nota vieja quedaba intacta.
+          if (nota != null || notaInicial != null) {
+            payload.push({ inscripcion_id: s.inscripcionId, actividad_id: act.id, nota });
+          }
         });
       });
       if (payload.length > 0) await saveCalificaciones(payload);

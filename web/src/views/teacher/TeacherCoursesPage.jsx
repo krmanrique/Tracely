@@ -85,6 +85,10 @@ export default function TeacherCoursesPage({ docenteId, semestre, initialCourseI
       }));
       await saveAttendance({ asignatura_id: activeCourse.id, fecha, records });
       setToast({ message: `Asistencia de ${activeCourse.name} guardada`, type: 'success' });
+      // Refrescar `data` con lo realmente persistido — si no, al cambiar de
+      // curso y volver, `todayAttendance` queda con los valores viejos y
+      // pisa lo que se acaba de guardar (ver auditoría).
+      loadDashboard(activeCourse.id);
     } catch (e) {
       setToast({ message: e.message || 'Error al guardar', type: 'error' });
     } finally {

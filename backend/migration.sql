@@ -26,13 +26,15 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ── 2. USUARIO ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS usuario (
-  id_institucional  VARCHAR(255)         PRIMARY KEY,
-  nombre            VARCHAR(255)         NOT NULL,
-  correo            VARCHAR(255)         NOT NULL UNIQUE,
-  contrasena_hash   VARCHAR(255)         NOT NULL,
-  rol               enum_usuario_rol     NOT NULL DEFAULT 'estudiante',
-  "createdAt"       TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
-  "updatedAt"       TIMESTAMPTZ          NOT NULL DEFAULT NOW()
+  id_institucional    VARCHAR(255)         PRIMARY KEY,
+  nombre              VARCHAR(255)         NOT NULL,
+  correo              VARCHAR(255)         NOT NULL UNIQUE,
+  contrasena_hash     VARCHAR(255)         NOT NULL,
+  rol                 enum_usuario_rol     NOT NULL DEFAULT 'estudiante',
+  reset_token         VARCHAR(255),
+  reset_token_expira  TIMESTAMP,
+  "createdAt"         TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
+  "updatedAt"         TIMESTAMPTZ          NOT NULL DEFAULT NOW()
 );
 
 -- ── 3. CARRERA ────────────────────────────────────────────────
@@ -94,6 +96,7 @@ CREATE TABLE IF NOT EXISTS asignatura (
   nombre              VARCHAR(255)  NOT NULL,
   "NRC"               VARCHAR(255)  NOT NULL UNIQUE,
   semestre_academico  VARCHAR(255)  NOT NULL,
+  umbral_advertencia  FLOAT         NOT NULL DEFAULT 3.0,
   "createdAt"         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   "updatedAt"         TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
@@ -182,5 +185,7 @@ CREATE INDEX IF NOT EXISTS idx_corte_asignatura ON corte(asignatura_id);
 
 -- ============================================================
 -- Migración completada.
--- Para poblar con datos de prueba, ejecutar: npm run seed
+-- Para poblar con datos de prueba (usuarios, carreras, materias,
+-- notas y asistencia reales de ejemplo), ejecutar:
+--   psql -U postgres -d tracely -f seed_data.sql
 -- ============================================================

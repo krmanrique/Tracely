@@ -58,12 +58,14 @@ export const getTeachers = async (search) => {
   return handle(res, 'Error al cargar docentes');
 };
 
-// GET /api/students?search=&carrera_id= (admin) — incluye GPA/asistencia/riesgo reales
+// GET /api/students?search=&carrera_id=&asignatura_id= (admin) — incluye
+// GPA/asistencia/riesgo reales; asignatura_id agrega `yaInscrito` por estudiante
 export const getStudents = async (opts = {}) => {
-  const { search, carrera_id } = typeof opts === 'string' ? { search: opts } : opts;
+  const { search, carrera_id, asignatura_id } = typeof opts === 'string' ? { search: opts } : opts;
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (carrera_id) params.set('carrera_id', carrera_id);
+  if (asignatura_id) params.set('asignatura_id', asignatura_id);
   const suffix = params.toString() ? `?${params}` : '';
   const res = await fetch(`${API}/students${suffix}`, { headers: authHeaders() });
   return handle(res, 'Error al cargar estudiantes');

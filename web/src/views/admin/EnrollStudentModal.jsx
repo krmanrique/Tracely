@@ -45,12 +45,16 @@ export default function EnrollStudentModal({ fixedAsignaturaId, fixedAsignaturaL
             <SearchSelect
               value={student}
               onSelect={setStudent}
-              fetchResults={(q) => getStudents(q)}
+              fetchResults={(q) => getStudents({ search: q, asignatura_id: fixedAsignaturaId })}
               getLabel={(s) => `${s.name} (${s.usuarioId})`}
+              isItemDisabled={(s) => s.yaInscrito}
               renderItem={(s) => (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{s.usuarioId} · {s.correo}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {s.yaInscrito && <span className="badge badge-active" style={{ flexShrink: 0 }}>Inscrito</span>}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{s.usuarioId} · {s.correo}</div>
+                  </div>
                 </div>
               )}
               placeholder="Busca por nombre, ID o correo..."

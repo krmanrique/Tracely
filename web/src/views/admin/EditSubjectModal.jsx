@@ -52,7 +52,7 @@ export default function EditSubjectModal({ subject, onClose, onSuccess }) {
           <div>
             <div style={labelStyle}>Docente</div>
             <select className="settings-select" style={{ width: '100%' }} value={form.docente_id} onChange={set('docente_id')}>
-              {teachers.map((t) => <option key={t.id} value={t.id}>{t.usuario?.nombre} ({t.usuario_id})</option>)}
+              {teachers.map((t) => <option key={t.id} value={t.id}>{t.usuario?.nombre} ({t.usuario_id}) — {t.usuario?.correo}</option>)}
             </select>
           </div>
           <div>

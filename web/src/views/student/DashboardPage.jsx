@@ -143,7 +143,7 @@ export default function StudentDashboard({ estudianteId, semestre, semData, onNa
                   key={n.id}
                   variants={staggerItem}
                   className={`notif-item ${n.read ? 'read' : 'unread'} ${n.courseId ? 'clickable' : ''}`}
-                  onClick={() => n.courseId && onNotifClick && onNotifClick(n.courseId)}
+                  onClick={() => n.courseId && onNotifClick && onNotifClick(n.courseId, n.categoria)}
                 >
                   <div className="notif-dot-icon" style={{
                     background: n.type === 'alert' ? 'var(--red)' : n.type === 'warning' ? 'var(--orange)' : n.type === 'success' ? 'var(--green)' : 'var(--accent)',
@@ -187,24 +187,21 @@ export default function StudentDashboard({ estudianteId, semestre, semData, onNa
                         {c.code}
                       </div>
                       <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>{c.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--text2)', marginBottom: 6 }}>{c.teacher}</div>
-                      <span className={`badge badge-${c.status === 'active' ? 'active' : 'alert'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        {c.status === 'active' ? 'Al día' : <><AlertTriangle size={12} /> Alerta</>}
-                      </span>
+                      <div style={{ fontSize: 11.5, color: 'var(--text2)' }}>{c.teacher}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 14, flexShrink: 0, textAlign: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: gradeColor(ov) }}>{ov != null ? ov.toFixed(1) : '—'}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>Nota</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: attColor(c.attendance) }}>{c.attendance}%</div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>Asistencia</div>
-                      </div>
-                    </div>
+                    <span className={`badge badge-${c.status === 'active' ? 'active' : 'alert'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      {c.status === 'active' ? 'Al día' : <><AlertTriangle size={12} /> Alerta</>}
+                    </span>
                   </div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${c.attendance}%`, background: 'var(--accent)' }} />
+                  <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: gradeColor(ov) }}>{ov != null ? ov.toFixed(1) : '—'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>Nota</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: attColor(c.attendance) }}>{c.attendance}%</div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>Asistencia</div>
+                    </div>
                   </div>
                 </motion.div>
               );

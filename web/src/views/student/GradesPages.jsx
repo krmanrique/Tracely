@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertTriangle, Inbox, NotebookPen, Check, Ban } from 'lucide-react';
+import { Loader2, AlertTriangle, Inbox, NotebookPen, Check, Ban, Target, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { gradeColor, corteAvg, courseOverall } from '../../utils/helpers';
 import { getGrades } from '../../services/gradesService';
+import { getSugerencias } from '../../utils/suggestions';
 import { fadeInUp, staggerContainer, staggerItem } from '../../utils/motionVariants';
 
 export default function GradesView({ estudianteId, semestre, semData, initialCourseId }) {
@@ -41,6 +42,7 @@ export default function GradesView({ estudianteId, semestre, semData, initialCou
   const corte   = course.cortes?.find((c) => c.id === activeCorte) ?? course.cortes?.[0];
   const cvg     = corte ? (corte.notaCorte ?? corteAvg(corte.actividades)) : null;
   const overall = course.notaDefinitivaCalculada ?? courseOverall(course.cortes ?? []);
+  const sugerencias = getSugerencias(course, corte);
 
   return (
     <motion.div variants={fadeInUp} initial="hidden" animate="show">
@@ -161,6 +163,33 @@ export default function GradesView({ estudianteId, semestre, semData, initialCou
                 }}>
                   {course.recuperable ? <><Check size={13} /> Recuperable</> : <><Ban size={13} /> No recuperable</>}
                 </span>
+              </div>
+            )}
+
+            {sugerencias.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sugerencias.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', background: 'var(--bg3)', borderRadius: 9 }}>
+                    <div style={{ color: 'var(--text3)', display: 'flex', marginTop: 1, flexShrink: 0 }}>
+                      {s.type === 'actividad-clave' && <Target size={14} />}
+                      {s.type === 'tendencia' && (s.subiendo ? <TrendingUp size={14} /> : <TrendingDown size={14} />)}
+                      {s.type === 'asistencia' && <Clock size={14} />}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.4 }}>
+                      {s.type === 'actividad-clave' && (
+                        s.imposible
+                          ? <>Ya no puedes llegar a 3.0 en este corte aunque saques 5.0 en el resto — habla con tu docente.</>
+                          : <>En <strong style={{ color: 'var(--text)' }}>{s.actividad}</strong> ({s.peso}% del corte) necesitas al menos <strong style={{ color: 'var(--text)' }}>{s.necesario.toFixed(1)}</strong> para no cerrar la puerta a este corte.</>
+                      )}
+                      {s.type === 'tendencia' && (
+                        <>Tu última nota (<strong style={{ color: 'var(--text)' }}>{s.ultima.toFixed(1)}</strong>) está {s.subiendo ? 'por encima' : 'por debajo'} de tu promedio anterior ({s.promedioAnterior.toFixed(1)}).</>
+                      )}
+                      {s.type === 'asistencia' && (
+                        <>Tu asistencia está en {s.attendance}%, a {s.faltante} puntos del mínimo del 80% — vale la pena cuidarla.</>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

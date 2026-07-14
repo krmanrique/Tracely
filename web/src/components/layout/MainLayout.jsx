@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../layout/Sidebar';
 import Topbar  from '../layout/Topbar';
+import RealtimeAlertToast from '../common/RealtimeAlertToast';
 import { useAuth }       from '../../context/AuthContext';
 import { useAppContext } from '../../context/AppContext';
+import { connectSocket, onAlertaNueva, onAlertaResuelta, disconnectSocket } from '../../services/socketService';
 
 const PAGE_TITLES = {
   dashboard:   'Dashboard',
@@ -28,13 +30,28 @@ export default function MainLayout({ children }) {
   const { user, logout }        = useAuth();
   const { semestre, setSemestre, semestres } = useAppContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const page = pageFromPath(location.pathname);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [realtimeAlert, setRealtimeAlert] = useState(null);
 
   // Cerrar el menú móvil al cambiar de página
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   const role = user?.role ?? 'student';
+
+  // Notificaciones en tiempo real (WebSocket) — solo para estudiantes.
+  // Puramente aditivo: si el socket no conecta, el resto de la app sigue
+  // funcionando igual vía REST.
+  useEffect(() => {
+    if (role !== 'student') return;
+    connectSocket();
+    onAlertaNueva((payload) => setRealtimeAlert({ ...payload, resuelta: false }));
+    onAlertaResuelta((payload) => setRealtimeAlert({ ...payload, resuelta: true }));
+    return () => disconnectSocket();
+  }, [role]);
+
+  const goToAlerts = () => navigate('/student/alerts');
 
   // userData usa los datos reales del usuario autenticado (vienen del login real)
   // user = { id, role, nombre } — guardado en localStorage por AuthContext
@@ -50,6 +67,13 @@ export default function MainLayout({ children }) {
 
   return (
     <div className="app">
+      {role === 'student' && (
+        <RealtimeAlertToast
+          alert={realtimeAlert}
+          onClose={() => setRealtimeAlert(null)}
+          onNavigate={goToAlerts}
+        />
+      )}
       <div className={`sidebar-backdrop ${mobileNavOpen ? 'show' : ''}`} onClick={() => setMobileNavOpen(false)} />
       <Sidebar
         role={role}
