@@ -40,8 +40,12 @@ export default function ProgramDetailScreen() {
 
   const [careerForm, setCareerForm] = useState<{ nombre: string; codigo: string; total_creditos: string } | null>(null);
   const [deletingCareer, setDeletingCareer] = useState(false);
+  const [deletingCareerBusy, setDeletingCareerBusy] = useState(false);
+  const [deletingCareerError, setDeletingCareerError] = useState<string | null>(null);
   const [subjectForm, setSubjectForm] = useState<SubjectForm | null>(null);
   const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null);
+  const [deletingSubjectBusy, setDeletingSubjectBusy] = useState(false);
+  const [deletingSubjectError, setDeletingSubjectError] = useState<string | null>(null);
   const [enrollFor, setEnrollFor] = useState<AdminSubject | null>(null);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -111,14 +115,22 @@ export default function ProgramDetailScreen() {
     }
   };
 
+  // El backend rechaza el borrado si la carrera tiene estudiantes o materias
+  // de pensum asociadas (misma regla que ya aplica a las materias). Acá
+  // además se deshabilita el botón de forma proactiva cuando ya sabemos que
+  // hay estudiantes (students.length), y de todas formas se muestra el
+  // mensaje real del servidor si falla por otra razón (ej. pensum).
   const confirmDeleteCareer = async () => {
+    setDeletingCareerBusy(true);
+    setDeletingCareerError(null);
     try {
       await adminService.deleteCareer(career.id);
       setDeletingCareer(false);
       router.back();
     } catch (e: any) {
-      setDeletingCareer(false);
-      setError(e?.message ?? 'No se pudo eliminar la carrera');
+      setDeletingCareerError(e?.message ?? 'No se pudo eliminar la carrera');
+    } finally {
+      setDeletingCareerBusy(false);
     }
   };
 
@@ -174,15 +186,19 @@ export default function ProgramDetailScreen() {
     }
   };
 
+  // El backend rechaza el borrado si la materia tiene estudiantes inscritos.
   const confirmDeleteSubject = async () => {
     if (!deletingSubjectId) return;
+    setDeletingSubjectBusy(true);
+    setDeletingSubjectError(null);
     try {
       await adminService.deleteSubject(deletingSubjectId);
       setDeletingSubjectId(null);
       await load();
     } catch (e: any) {
-      setDeletingSubjectId(null);
-      setError(e?.message ?? 'No se pudo eliminar la materia');
+      setDeletingSubjectError(e?.message ?? 'No se pudo eliminar la materia');
+    } finally {
+      setDeletingSubjectBusy(false);
     }
   };
 
@@ -196,10 +212,18 @@ export default function ProgramDetailScreen() {
         <TouchableOpacity onPress={openEditCareer} hitSlop={6} style={styles.iconBtn}>
           <Ionicons name="pencil" size={18} color={Colors.accent} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setDeletingCareer(true)} hitSlop={6} style={styles.iconBtn}>
-          <Ionicons name="trash-outline" size={18} color={Colors.red} />
+        <TouchableOpacity
+          onPress={() => { if (students.length === 0) { setDeletingCareerError(null); setDeletingCareer(true); } }}
+          disabled={students.length > 0}
+          hitSlop={6}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="trash-outline" size={18} color={students.length > 0 ? Colors.text3 : Colors.red} />
         </TouchableOpacity>
       </View>
+      {students.length > 0 && (
+        <Text style={styles.careerDeleteHint}>No se puede eliminar: tiene {students.length} estudiante(s) asociado(s)</Text>
+      )}
 
       <Card>
         <View style={styles.rowBetween}>
@@ -226,7 +250,12 @@ export default function ProgramDetailScreen() {
               <TouchableOpacity onPress={() => openEditSubject(s)} hitSlop={6} style={styles.iconBtn}>
                 <Ionicons name="pencil" size={16} color={Colors.accent} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setDeletingSubjectId(s.id)} hitSlop={6} style={styles.iconBtn}>
+              <TouchableOpacity
+                onPress={() => { if (s.inscritos === 0) { setDeletingSubjectError(null); setDeletingSubjectId(s.id); } }}
+                disabled={s.inscritos > 0}
+                hitSlop={6}
+                style={styles.iconBtn}
+              >
                 <Ionicons name="trash-outline" size={16} color={s.inscritos > 0 ? Colors.text3 : Colors.red} />
               </TouchableOpacity>
             </View>
@@ -309,16 +338,20 @@ export default function ProgramDetailScreen() {
       <ConfirmDialog
         visible={deletingCareer}
         title="Eliminar carrera"
-        message="Solo se puede eliminar si no tiene estudiantes ni materias asociadas."
+        message="Solo se puede eliminar si no tiene estudiantes ni materias asociadas. Esta acción no se puede deshacer."
+        loading={deletingCareerBusy}
+        error={deletingCareerError}
         onConfirm={confirmDeleteCareer}
-        onCancel={() => setDeletingCareer(false)}
+        onCancel={() => { setDeletingCareer(false); setDeletingCareerError(null); }}
       />
       <ConfirmDialog
         visible={deletingSubjectId != null}
         title="Eliminar materia"
-        message="Solo se puede eliminar si no tiene estudiantes inscritos."
+        message="Solo se puede eliminar si no tiene estudiantes inscritos. Esta acción no se puede deshacer."
+        loading={deletingSubjectBusy}
+        error={deletingSubjectError}
         onConfirm={confirmDeleteSubject}
-        onCancel={() => setDeletingSubjectId(null)}
+        onCancel={() => { setDeletingSubjectId(null); setDeletingSubjectError(null); }}
       />
     </ScrollView>
   );
@@ -469,6 +502,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   careerName: { fontSize: Font.lg, fontWeight: '700', color: Colors.text },
   careerSub: { fontSize: Font.sm, color: Colors.text2, marginTop: 2 },
+  careerDeleteHint: { fontSize: Font.xs, color: Colors.text3, marginTop: 2 },
   iconBtn: { padding: 6 },
 
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Space.md },

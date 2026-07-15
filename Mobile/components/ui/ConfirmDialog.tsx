@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
 
 interface Props {
@@ -8,14 +8,19 @@ interface Props {
   message: string;
   confirmLabel?: string;
   destructive?: boolean;
+  loading?: boolean;
+  error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-// Confirmación para acciones destructivas (eliminar usuario/materia/actividad).
-// El logout, en cambio, no usa esto — es inmediato, igual que en la web.
+// Confirmación para acciones destructivas (eliminar usuario/materia/carrera/
+// actividad). El logout, en cambio, no usa esto — es inmediato, igual que en
+// la web. Si `onConfirm` falla (ej. el backend rechaza el borrado por tener
+// dependientes), el llamador pasa `error` y el diálogo se queda abierto
+// mostrando el motivo, en vez de cerrarse silenciosamente.
 export default function ConfirmDialog({
-  visible, title, message, confirmLabel = 'Eliminar', destructive = true, onConfirm, onCancel,
+  visible, title, message, confirmLabel = 'Eliminar', destructive = true, loading, error, onConfirm, onCancel,
 }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -23,15 +28,25 @@ export default function ConfirmDialog({
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
           <View style={styles.row}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} disabled={loading}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.confirmBtn, destructive && styles.confirmBtnDestructive]}
               onPress={onConfirm}
+              disabled={loading}
             >
-              <Text style={[styles.confirmText, destructive && styles.confirmTextDestructive]}>{confirmLabel}</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color={destructive ? Colors.red : Colors.white} />
+              ) : (
+                <Text style={[styles.confirmText, destructive && styles.confirmTextDestructive]}>{confirmLabel}</Text>
+              )}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -45,6 +60,11 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 360, backgroundColor: Colors.card, borderRadius: Radius.lg, padding: Space.lg, gap: Space.xs },
   title: { fontSize: Font.md, fontWeight: '700', color: Colors.text },
   message: { fontSize: Font.sm, color: Colors.text2, marginBottom: Space.md },
+  errorBox: {
+    backgroundColor: 'rgba(220,38,38,0.08)', borderWidth: 1, borderColor: 'rgba(220,38,38,0.25)',
+    borderRadius: Radius.md, padding: Space.sm, marginBottom: Space.md, marginTop: -Space.sm,
+  },
+  errorText: { color: Colors.red, fontSize: Font.xs, fontWeight: '500' },
   row: { flexDirection: 'row', gap: Space.sm },
   cancelBtn: { flex: 1, paddingVertical: Space.sm, borderRadius: Radius.md, alignItems: 'center', backgroundColor: Colors.bg3 },
   cancelText: { fontSize: Font.sm, fontWeight: '600', color: Colors.text2 },
