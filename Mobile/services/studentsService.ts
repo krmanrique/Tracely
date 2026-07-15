@@ -22,6 +22,11 @@ export interface StudentInscripcion {
   recuperable?: boolean;
 }
 
+export interface ApiSesionAsistencia {
+  fecha: string;
+  presente: boolean;
+}
+
 export interface StudentAttendanceCourse {
   id: string; // asignatura id
   name: string;
@@ -33,6 +38,7 @@ export interface StudentAttendanceCourse {
   status: 'active' | 'alert';
   total: number;
   presentes: number;
+  ultimasSesiones?: ApiSesionAsistencia[];
   inscripcionId: string;
 }
 
@@ -48,4 +54,18 @@ export async function getCalificaciones(idInstitucional: string, semestre?: stri
 export async function getAttendance(idInstitucional: string, semestre?: string): Promise<{ courses: StudentAttendanceCourse[] }> {
   const suffix = semestre ? `?semestre=${encodeURIComponent(semestre)}` : '';
   return apiFetch<{ courses: StudentAttendanceCourse[] }>(`/attendance/estudiante/${encodeURIComponent(idInstitucional)}${suffix}`);
+}
+
+export interface PensumItem {
+  pensum_id: string;
+  nombre_asignatura: string;
+  semestre: number;
+  creditos: number;
+  estado: 'aprobada' | 'en_curso' | 'pendiente';
+  nota_definitiva: number | string | null;
+  inscripcion_id: string | null;
+}
+
+export async function getPensum(idInstitucional: string): Promise<PensumItem[]> {
+  return apiFetch<PensumItem[]>(`/students/${encodeURIComponent(idInstitucional)}/pensum`);
 }

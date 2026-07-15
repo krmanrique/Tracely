@@ -8,5 +8,6 @@ router.get('/estudiante/:estudianteId', authenticate, inscripcionController.getB
 router.get('/asignatura/:asignaturaId', authenticate, authorize('docente', 'admin'), inscripcionController.getByAsignatura);
 router.post('/',              authenticate, authorize('admin'), inscripcionController.create);
 router.put('/:id/finalizar',  authenticate, authorize('docente', 'admin'), inscripcionController.finalizar);
+router.delete('/:id',         authenticate, authorize('admin'), inscripcionController.remove);
 
 module.exports = router;

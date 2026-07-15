@@ -141,10 +141,44 @@ export const getCareers = async () => {
   return handle(res, 'Error al cargar carreras');
 };
 
+// POST /api/careers
+export const createCareer = async (payload) => {
+  const res = await fetch(`${API}/careers`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return handle(res, 'Error al crear la carrera');
+};
+
+// PUT /api/careers/:id
+export const updateCareer = async (id, payload) => {
+  const res = await fetch(`${API}/careers/${id}`, {
+    method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return handle(res, 'Error al actualizar la carrera');
+};
+
+// DELETE /api/careers/:id — rechazado por el backend si tiene estudiantes o pensum asociado
+export const deleteCareer = async (id) => {
+  const res = await fetch(`${API}/careers/${id}`, { method: 'DELETE', headers: authHeaders() });
+  return handle(res, 'Error al eliminar la carrera');
+};
+
 // POST /api/inscripciones — vincula un estudiante existente a una asignatura por ID
 export const enrollStudent = async (estudiante_id, asignatura_id) => {
   const res = await fetch(`${API}/inscripciones`, {
     method: 'POST', headers: authHeaders(), body: JSON.stringify({ estudiante_id, asignatura_id }),
   });
   return handle(res, 'Error al inscribir al estudiante');
+};
+
+// GET /api/inscripciones/asignatura/:asignaturaId — roster real (para poder des-inscribir)
+export const getInscripcionesByAsignatura = async (asignaturaId) => {
+  const res = await fetch(`${API}/inscripciones/asignatura/${asignaturaId}`, { headers: authHeaders() });
+  return handle(res, 'Error al cargar los inscritos');
+};
+
+// DELETE /api/inscripciones/:id — des-inscribir
+export const unenrollStudent = async (inscripcionId) => {
+  const res = await fetch(`${API}/inscripciones/${inscripcionId}`, { method: 'DELETE', headers: authHeaders() });
+  return handle(res, 'Error al des-inscribir al estudiante');
 };

@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, BookOpen, UserPlus, Pencil, Trash2, Loader2, AlertTriangle, Inbox, Users } from 'lucide-react';
 import { attColor, gradeColor } from '../../utils/helpers';
 import { fadeInUp } from '../../utils/motionVariants';
-import { getSubjects, getStudents, deleteSubject, updateStudent } from '../../services/adminAcademicService';
+import { getSubjects, getStudents, deleteSubject, updateStudent, deleteCareer, getCareers } from '../../services/adminAcademicService';
 import CreateSubjectModal from './CreateSubjectModal';
 import EditSubjectModal from './EditSubjectModal';
+import EditCareerModal from './EditCareerModal';
 import EnrollStudentModal from './EnrollStudentModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import SearchSelect from '../../components/common/SearchSelect';
@@ -28,11 +29,19 @@ export default function ProgramDetailView({ program, onBack, onToast }) {
   const [enrollFor, setEnrollFor]                   = useState(null);
   const [showAddStudent, setShowAddStudent]         = useState(false);
   const [addingStudent, setAddingStudent]           = useState(null);
+  const [editingCareer, setEditingCareer]           = useState(false);
+  const [deletingCareer, setDeletingCareer]         = useState(false);
+  const [careerError, setCareerError]               = useState(null);
+  const [careerDetail, setCareerDetail]             = useState(null);
 
   const load = () => {
     setLoading(true);
-    Promise.all([getSubjects({ carrera_id: program.id }), getStudents({ carrera_id: program.id })])
-      .then(([subs, studs]) => { setSubjects(subs); setStudents(studs); })
+    Promise.all([getSubjects({ carrera_id: program.id }), getStudents({ carrera_id: program.id }), getCareers()])
+      .then(([subs, studs, careers]) => {
+        setSubjects(subs);
+        setStudents(studs);
+        setCareerDetail(careers.find((c) => c.id === program.id) ?? null);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -60,6 +69,18 @@ export default function ProgramDetailView({ program, onBack, onToast }) {
     finally { setAddingStudent(null); }
   };
 
+  // La restricción real la aplica el backend (bloquea si hay estudiantes o
+  // materias de pensum asociadas) — aquí solo se refleja el mensaje que
+  // devuelva, en vez de asumir de antemano cuáles son todas las razones.
+  const handleDeleteCareer = async () => {
+    setDeletingCareer(false);
+    try {
+      await deleteCareer(program.id);
+      onToast?.(`"${program.name}" eliminado`);
+      onBack();
+    } catch (e) { setCareerError(e.message); }
+  };
+
   return (
     <motion.div variants={fadeInUp} initial="hidden" animate="show" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {showCreateSubject && (
@@ -85,13 +106,48 @@ export default function ProgramDetailView({ program, onBack, onToast }) {
           onSuccess={handleToast}
         />
       )}
+      {editingCareer && careerDetail && (
+        <EditCareerModal
+          career={careerDetail}
+          onClose={() => setEditingCareer(false)}
+          onSuccess={(msg) => { onToast?.(msg); load(); }}
+        />
+      )}
+      {deletingCareer && (
+        <ConfirmModal
+          title={`¿Eliminar "${program.name}"?`}
+          message="Solo se puede eliminar si no tiene estudiantes ni materias de pensum asociadas. Esta acción no se puede deshacer."
+          danger confirmLabel="Eliminar"
+          onConfirm={handleDeleteCareer}
+          onCancel={() => setDeletingCareer(false)}
+        />
+      )}
 
       <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ alignSelf: 'flex-start' }}>
         <ArrowLeft size={13} /> Volver a Programas
       </button>
 
       <div className="card" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>{program.name}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>{program.name}</div>
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditingCareer(true)} title="Editar carrera"><Pencil size={12} /></button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => program.students === 0 && setDeletingCareer(true)}
+              disabled={program.students > 0}
+              title={program.students > 0 ? `No se puede eliminar: tiene ${program.students} estudiante(s) asociado(s)` : 'Eliminar carrera'}
+              style={{ color: program.students > 0 ? 'var(--text3)' : 'var(--red)', cursor: program.students > 0 ? 'not-allowed' : 'pointer' }}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+        {careerError && (
+          <div style={{ color: 'var(--red)', fontSize: 12, background: 'var(--bg3)', padding: '8px 12px', borderRadius: 8, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AlertTriangle size={13} /> {careerError}
+          </div>
+        )}
         <div className="grid grid-3" style={{ gap: 10, marginTop: 14 }}>
           <div><div className="stat-label">Estudiantes</div><div style={{ fontSize: 22, fontWeight: 700 }}>{program.students.toLocaleString()}</div></div>
           <div><div className="stat-label">GPA</div><div style={{ fontSize: 22, fontWeight: 700, color: gradeColor(program.avgGpa) }}>{program.avgGpa.toFixed(1)}</div></div>

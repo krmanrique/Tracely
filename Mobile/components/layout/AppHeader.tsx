@@ -1,35 +1,69 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useData } from '../../context/DataContext';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
-import ProfileModal from './ProfileModal';
 
-export default function AppHeader({ title }: { title: string }) {
+interface Props {
+  title: string;
+  variant?: 'gradient' | 'light';
+  onBack?: () => void;
+  bellCount?: number;
+  onBellPress?: () => void;
+}
+
+export default function AppHeader({ title, variant = 'gradient', onBack, bellCount, onBellPress }: Props) {
+  const router = useRouter();
   const { profile, semestre, setSemestre, semestres } = useData();
-  const [showProfile, setShowProfile] = useState(false);
+  const light = variant === 'light';
 
   return (
     <LinearGradient
       colors={[Colors.gradientStart, Colors.gradientEnd]}
       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={styles.header}
+      style={light ? styles.headerCompact : styles.header}
     >
-      <View style={styles.topRow}>
-        <TouchableOpacity style={styles.avatarWrap} onPress={() => setShowProfile(true)}>
-          <View style={[styles.avatar, { backgroundColor: profile.avatarColor }]}>
-            <Text style={styles.avatarText}>{profile.initials}</Text>
+      {light ? (
+        <View style={styles.compactTopRow}>
+          <View style={styles.compactLeft}>
+            {onBack && (
+              <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={8}>
+                <Ionicons name="chevron-back" size={22} color={Colors.white} />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.compactTitle}>{title}</Text>
           </View>
-          <View>
-            <Text style={styles.name}>{profile.name || '—'}</Text>
-            <Text style={styles.sub}>{profile.sub}</Text>
+          {onBellPress && (
+            <TouchableOpacity onPress={onBellPress} hitSlop={8} style={styles.bellBtn}>
+              <Ionicons name="notifications-outline" size={22} color={Colors.white} />
+              {!!bellCount && bellCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{bellCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <>
+          <View style={styles.topRow}>
+            <TouchableOpacity style={styles.avatarWrap} onPress={() => router.push('/(tabs)/profile')}>
+              <View style={[styles.avatar, { backgroundColor: profile.avatarColor }]}>
+                <Text style={styles.avatarText}>{profile.initials}</Text>
+              </View>
+              <View>
+                <Text style={styles.name}>{profile.name || '—'}</Text>
+                <Text style={styles.sub}>{profile.sub}</Text>
+              </View>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>{title}</Text>
+        </>
+      )}
 
       {semestres.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.semRow}>
@@ -44,8 +78,6 @@ export default function AppHeader({ title }: { title: string }) {
           ))}
         </ScrollView>
       )}
-
-      <ProfileModal visible={showProfile} onClose={() => setShowProfile(false)} />
     </LinearGradient>
   );
 }
@@ -82,4 +114,22 @@ const styles = StyleSheet.create({
   semChipActive: { backgroundColor: 'rgba(255,255,255,0.22)', borderColor: 'rgba(255,255,255,0.7)' },
   semChipText: { fontSize: Font.xs, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
   semChipTextActive: { color: Colors.white },
+
+  headerCompact: {
+    paddingTop: 56,
+    paddingBottom: Space.md,
+    paddingHorizontal: Space.lg,
+    gap: Space.sm,
+  },
+  compactTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  compactLeft: { flexDirection: 'row', alignItems: 'center', gap: Space.sm, flex: 1 },
+  backBtn: { padding: 2, marginLeft: -6 },
+  compactTitle: { fontSize: Font.xl, fontWeight: '700', color: Colors.white, letterSpacing: -0.4 },
+  bellBtn: { padding: 2 },
+  bellBadge: {
+    position: 'absolute', top: -4, right: -4,
+    backgroundColor: Colors.red, borderRadius: Radius.full,
+    minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  bellBadgeText: { fontSize: 9, fontWeight: '800', color: Colors.white },
 });

@@ -24,6 +24,9 @@ export interface StudentCourse {
   code: string;
   teacher: string;
   attendance: number;
+  absences: number;
+  totalSesiones: number;
+  ultimasSesiones: { fecha: string; presente: boolean }[];
   credits: number;
   status: 'active' | 'alert';
   color: string;
@@ -61,6 +64,7 @@ export interface TeacherCourse {
   cortes: ApiCorte[];
   students: TeacherStudent[];
   todayAttendance: Record<string, boolean>; // por inscripcion_id
+  umbralAdvertencia: number;
 }
 
 export interface TeacherSemData {
@@ -188,6 +192,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             code: asig.NRC,
             teacher: asig.docente?.usuario?.nombre ?? '',
             attendance,
+            absences: att ? Math.max(0, att.total - att.presentes) : 0,
+            totalSesiones: att?.total ?? 0,
+            ultimasSesiones: att?.ultimasSesiones ?? [],
             credits: asig.pensum?.creditos ?? 0,
             status: att?.status ?? (attendance < 80 ? 'alert' : 'active'),
             color: PALETTE[idx % PALETTE.length],
@@ -278,6 +285,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             cortes: [...c.cortes].sort((a, b) => a.numero_corte - b.numero_corte),
             students,
             todayAttendance: todayMap,
+            umbralAdvertencia: toNum(c.umbral_advertencia) ?? 3.5,
           };
           (semMap[sem] ??= { courses: [] }).courses.push(course);
         });
@@ -327,9 +335,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return {
       name,
       idLabel: user?.id_institucional ?? '',
-      sub: carreraNombre ?? (user?.role === 'teacher' ? 'Docente' : 'Estudiante'),
+      sub: carreraNombre ?? (user?.role === 'teacher' ? 'Docente' : user?.role === 'admin' ? 'Administrador' : 'Estudiante'),
       initials,
-      avatarColor: user?.role === 'teacher' ? Colors.accent : Colors.purple,
+      avatarColor: user?.role === 'teacher' ? Colors.accent : user?.role === 'admin' ? Colors.orange : Colors.purple,
     };
   }, [user, carreraNombre]);
 

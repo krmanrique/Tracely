@@ -9,7 +9,7 @@ import AlertBanner from '../../components/students/AlertBanner';
 import NotifItem from '../../components/students/NotifItem';
 import CourseCard from '../../components/students/CourseCard';
 import { useData } from '../../context/DataContext';
-import { Colors, Font, Space } from '../../constants/theme';
+import { Colors, Font, Space, Radius } from '../../constants/theme';
 import { gradeColor, attColor } from '../../utils/helpers';
 
 export default function StudentDashboardScreen() {
@@ -45,33 +45,42 @@ export default function StudentDashboardScreen() {
     );
   }
 
-  const { gpa, attendanceRate, riskLevel, courses, notifications } = semData;
+  const { semester, gpa, attendanceRate, riskLevel, courses, notifications } = semData;
   const unread = notifications.filter((n) => !n.read).length;
   const alertCourses = courses.filter((c) => c.status === 'alert');
 
-  const riskLabel = riskLevel === 'low' ? '✓ Bajo' : riskLevel === 'medium' ? '⚠ Medio' : '⛔ Alto';
+  const riskLabel = riskLevel === 'low' ? '✓ BAJO' : riskLevel === 'medium' ? '⚠ MEDIO' : '⛔ ALTO';
+  const riskColor = riskLevel === 'low' ? Colors.green : riskLevel === 'medium' ? Colors.orange : Colors.red;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.semesterPill}>
+        <Text style={styles.semesterLabel}>Semestre Actual</Text>
+        <Text style={styles.semesterValue}>{semester}</Text>
+      </View>
+
       <AlertBanner courseNames={alertCourses.map((c) => c.name)} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}
-        contentContainerStyle={styles.statsRow}>
-        <StatCard icon="📊" label="Promedio General" value={gpa != null ? gpa.toFixed(1) : '—'} sub="Escala 0.0 – 5.0" valueColor={gradeColor(gpa)} />
-        <StatCard icon="✅" label="Asistencia Global" value={attendanceRate != null ? `${attendanceRate}%` : '—'} sub="Mínimo requerido 80%" valueColor={attColor(attendanceRate)} />
-        <StatCard icon="📚" label="Materias" value={String(courses.length)} sub={`${courses.reduce((a, c) => a + c.credits, 0)} créditos`} />
-        <StatCard icon="🔔" label="Alertas" value={String(unread)} sub="Sin leer" valueColor={unread ? Colors.red : Colors.text} />
-      </ScrollView>
+      <View style={styles.statsGrid}>
+        <View style={styles.statsGridItem}>
+          <StatCard iconName="bar-chart-outline" iconColor={Colors.accent} label="Promedio" value={gpa != null ? gpa.toFixed(1) : '—'} sub="Escala 0-5" valueColor={gradeColor(gpa)} />
+        </View>
+        <View style={styles.statsGridItem}>
+          <StatCard iconName="checkmark-circle-outline" iconColor={Colors.green} label="Asistencia" value={attendanceRate != null ? `${attendanceRate}%` : '—'} sub="Mínimo 80%" valueColor={attColor(attendanceRate)} />
+        </View>
+        <View style={styles.statsGridItem}>
+          <StatCard iconName="book-outline" iconColor={Colors.purple} label="Materias" value={String(courses.length)} sub={`${courses.reduce((a, c) => a + c.credits, 0)} créditos`} />
+        </View>
+        <View style={styles.statsGridItem}>
+          <StatCard iconName="alert-circle-outline" iconColor={Colors.orange} label="Alertas" value={String(unread)} sub="Sin leer" valueColor={unread ? Colors.red : Colors.text} />
+        </View>
+      </View>
 
       <Card>
-        <View style={styles.ringRow}>
-          <RingChart value={gpa ?? 0} max={5} size={96} color={gradeColor(gpa)} label={gpa != null ? gpa.toFixed(1) : '—'} sublabel="Promedio" />
-          <View style={styles.ringInfo}>
-            <Text style={styles.sectionLabel}>Nivel de Riesgo</Text>
-            <Badge variant={riskLevel as any} label={riskLabel} />
-            <Text style={[styles.gpaLarge, { color: gradeColor(gpa) }]}>{gpa != null ? gpa.toFixed(2) : '—'}</Text>
-            <Text style={styles.gpaSmall}>Promedio acumulado</Text>
-          </View>
+        <Text style={styles.riskTitle}>Nivel de Riesgo Académico</Text>
+        <View style={styles.riskCenter}>
+          <RingChart value={gpa ?? 0} max={5} size={140} color={gradeColor(gpa)} label={gpa != null ? gpa.toFixed(1) : '—'} sublabel="" />
+          <Text style={[styles.riskLabel, { color: riskColor }]}>{riskLabel}</Text>
         </View>
       </Card>
 
@@ -100,7 +109,7 @@ export default function StudentDashboardScreen() {
         <CourseCard key={c.id} course={c} onPress={() => router.push('/(tabs)/grades')} />
       ))}
 
-      <View style={{ height: Space.xl }} />
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 }
@@ -113,14 +122,19 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: Font.base, color: Colors.text3, textAlign: 'center' },
   emptyInlineText: { fontSize: Font.base, color: Colors.text3, textAlign: 'center', paddingVertical: Space.md },
 
-  statsScroll: { marginHorizontal: -Space.lg },
-  statsRow: { paddingHorizontal: Space.lg, gap: Space.md, flexDirection: 'row' },
+  semesterPill: {
+    backgroundColor: Colors.accent, borderRadius: Radius.md,
+    paddingVertical: Space.md, paddingHorizontal: Space.md,
+  },
+  semesterLabel: { fontSize: Font.xs, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.6 },
+  semesterValue: { fontSize: Font.base, fontWeight: '700', color: Colors.white, marginTop: 2 },
 
-  ringRow: { flexDirection: 'row', alignItems: 'center', gap: Space.xl },
-  ringInfo: { flex: 1, gap: Space.sm },
-  sectionLabel: { fontSize: Font.xs, fontWeight: '700', color: Colors.text3, textTransform: 'uppercase', letterSpacing: 0.8 },
-  gpaLarge: { fontSize: Font.xxl, fontWeight: '700', letterSpacing: -0.5 },
-  gpaSmall: { fontSize: Font.xs, color: Colors.text3 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },
+  statsGridItem: { width: '47%' },
+
+  riskTitle: { fontSize: Font.md, fontWeight: '700', color: Colors.text, marginBottom: Space.md, textAlign: 'center' },
+  riskCenter: { alignItems: 'center', gap: Space.md },
+  riskLabel: { fontSize: Font.base, fontWeight: '800', letterSpacing: 0.5 },
 
   sectionTitle: { fontSize: Font.md, fontWeight: '700', letterSpacing: -0.2, color: Colors.text },
   sectionLink: { fontSize: Font.sm, color: Colors.accent, fontWeight: '600' },

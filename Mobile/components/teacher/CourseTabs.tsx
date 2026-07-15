@@ -36,7 +36,7 @@ export default function CourseTabs({
 const styles = StyleSheet.create({
   tabRow: { flexDirection: 'row', gap: Space.sm, backgroundColor: Colors.bg3, padding: 4, borderRadius: Radius.md },
   tab: { paddingHorizontal: Space.md, paddingVertical: Space.sm, borderRadius: Radius.sm },
-  tabActive: { backgroundColor: Colors.white, shadowColor: '#6355A5', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tabActive: { backgroundColor: Colors.white, shadowColor: Colors.accent, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
   tabText: { fontSize: Font.sm, fontWeight: '500', color: Colors.text2 },
   tabTextActive: { color: Colors.text, fontWeight: '600' },
 });

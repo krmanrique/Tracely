@@ -35,6 +35,13 @@ const attendanceController = {
         const total     = insc.asistencias.length;
         const presentes = insc.asistencias.filter((a) => a.presente).length;
         const pct       = total > 0 ? Math.round((presentes / total) * 100) : 100;
+        // Últimas 5 sesiones registradas (más reciente primero) — para el
+        // indicador visual de asistencia reciente en el detalle de la materia.
+        const ultimasSesiones = [...insc.asistencias]
+          .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+          .slice(0, 5)
+          .reverse()
+          .map((a) => ({ fecha: a.fecha, presente: a.presente }));
         return {
           id:            insc.asignatura.id,
           name:          insc.asignatura.nombre,
@@ -46,6 +53,7 @@ const attendanceController = {
           status:        pct >= 80 ? 'active' : 'alert',
           total,
           presentes,
+          ultimasSesiones,
           inscripcionId: insc.id,
         };
       });
