@@ -9,17 +9,12 @@ services:
     container_name: tracely_api
     ports:
       - "3000:3000"
+    env_file:
+      - .env          # crear en el servidor a partir de .env.example — nunca se commitea
     environment:
       NODE_ENV: production
-      PORT: 3000
       DB_HOST: db          # nombre del servicio de base de datos
       DB_PORT: 5432
-      DB_NAME: tracely
-      DB_USER: postgres
-      DB_PASS: tracely_pass
-      JWT_SECRET: tracely_super_secret_2025_cambia_esto
-      JWT_EXPIRES_IN: 8h
-      CORS_ORIGIN: http://localhost:5173
     depends_on:
       db:
         condition: service_healthy
@@ -30,16 +25,16 @@ services:
     image: postgres:15-alpine
     container_name: tracely_db
     ports:
-      - "5432:5432"          # expuesto para conectar con pgAdmin si quieres
+      - "127.0.0.1:5432:5432"   # solo accesible desde el propio servidor (ej. pgAdmin por SSH tunnel)
     environment:
-      POSTGRES_DB: tracely
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: tracely_pass
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./src/config/init.sql:/docker-entrypoint-initdb.d/init.sql  # seed inicial
+      - ./migration.sql:/docker-entrypoint-initdb.d/01-migration.sql   # solo corre en la primera inicializacion del volumen
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d tracely"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5

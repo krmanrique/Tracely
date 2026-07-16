@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// Los 3 puntos donde se firma/verifica el JWT usan `process.env.JWT_SECRET ||
+// 'secretkey'` como fallback de desarrollo. En producción, si la variable no
+// quedó configurada, ese fallback público volvería los tokens falsificables
+// sin que nada lo avise — se corta el arranque en vez de servir así.
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET no está configurado — obligatorio en producción');
+  process.exit(1);
+}
+
 const http      = require('http');
 const jwt       = require('jsonwebtoken');
 const express   = require('express');
