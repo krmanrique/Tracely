@@ -73,7 +73,7 @@ export function sugerenciaAsistencia(course) {
   return {
     type: 'asistencia',
     attendance: att,
-    faltante: 90 - att,
+    faltante: att - 80, // colchon real por encima del minimo de 80%, no distancia a 90
   };
 }
 
