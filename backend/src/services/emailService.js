@@ -10,13 +10,27 @@ function getResend() {
   return resendClient;
 }
 
+// El SDK de Resend NO rechaza la promesa cuando el envío falla por una razón
+// de la API (ej. cuenta en modo sandbox sin dominio verificado, intentando
+// enviar a un correo distinto al de la cuenta) — resuelve igual con
+// { data: null, error: {...} }. Sin este chequeo, ese tipo de fallo queda
+// invisible: el código de arriba asumía éxito con solo un try/catch.
+function loggedSend(result, context) {
+  if (result?.error) {
+    console.error(`❌ Error email (${context}):`, result.error.message);
+    return false;
+  }
+  console.log(`📧 Email enviado (${context})`);
+  return true;
+}
+
 const emailTemplate = (content) => `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family:'Segoe UI',sans-serif;background:#f4f5fb;margin:0;padding:20px;">
   <div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-    <div style="background:linear-gradient(135deg,#8b7eff,#9068ff);padding:32px 40px;text-align:center;">
+    <div style="background:linear-gradient(135deg,#1C3992,#2C4FB8);padding:32px 40px;text-align:center;">
       <div style="font-size:28px;font-weight:700;color:white;letter-spacing:-0.5px;">Tracely</div>
       <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:4px;">Sistema de Seguimiento Académico — UNICATÓLICA</div>
     </div>
@@ -55,18 +69,17 @@ const sendAttendanceAlert = async ({ studentName, studentEmail, subjectName, att
       ${isRecuperable
         ? '<p style="font-size:13px;color:#059669;background:#f0fdf4;padding:10px 14px;border-radius:8px;margin:0 0 20px;">✓ Situación recuperable. Habla con tu docente.</p>'
         : '<p style="font-size:13px;color:#DC2626;background:#fef2f2;padding:10px 14px;border-radius:8px;margin:0 0 20px;">⛔ Situación crítica. Habla con coordinación académica.</p>'}
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/attendance" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi asistencia →</a>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/attendance" style="display:inline-block;background:#F59E0B;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi asistencia →</a>
     </div>`);
 
   try {
-    await getResend().emails.send({
+    const result = await getResend().emails.send({
       from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
       to:      studentEmail,
       subject: `⚠ Asistencia ${tipo.toLowerCase()} en ${subjectName} — ${attendancePercent}%`,
       html,
     });
-    console.log(`📧 Email enviado a ${studentEmail}`);
-    return true;
+    return loggedSend(result, `asistencia → ${studentEmail}`);
   } catch (err) {
     console.error('❌ Error email:', err.message);
     return false;
@@ -85,17 +98,17 @@ const sendGradeNotification = async ({ studentName, studentEmail, subjectName, a
         <div style="font-size:48px;font-weight:700;color:${color};margin:8px 0;">${grade.toFixed(1)}</div>
         <div style="font-size:13px;color:#6B6888;">Escala 0.0 – 5.0</div>
       </div>
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/grades" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mis notas →</a>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/grades" style="display:inline-block;background:#F59E0B;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mis notas →</a>
     </div>`);
 
   try {
-    await getResend().emails.send({
+    const result = await getResend().emails.send({
       from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
       to:      studentEmail,
       subject: `📝 Nueva nota en ${subjectName}: ${grade.toFixed(1)}`,
       html,
     });
-    return true;
+    return loggedSend(result, `nota → ${studentEmail}`);
   } catch (err) {
     console.error('❌ Error email nota:', err.message);
     return false;
@@ -133,18 +146,17 @@ const sendTeacherRiskAlert = async ({
       ${recuperable
         ? '<p style="font-size:13px;color:#059669;background:#f0fdf4;padding:10px 14px;border-radius:8px;margin:0 0 20px;">✓ Todavía es matemáticamente recuperable.</p>'
         : '<p style="font-size:13px;color:#DC2626;background:#fef2f2;padding:10px 14px;border-radius:8px;margin:0 0 20px;">⛔ Ya no es matemáticamente recuperable.</p>'}
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/teacher/dashboard" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi dashboard →</a>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/teacher/dashboard" style="display:inline-block;background:#F59E0B;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Ver mi dashboard →</a>
     </div>`);
 
   try {
-    await getResend().emails.send({
+    const result = await getResend().emails.send({
       from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
       to:      teacherEmail,
       subject: `Alerta ${label.toLowerCase()}: ${studentName} en ${subjectName}`,
       html,
     });
-    console.log(`📧 Alerta de docente enviada a ${teacherEmail}`);
-    return true;
+    return loggedSend(result, `alerta docente → ${teacherEmail}`);
   } catch (err) {
     console.error('❌ Error email docente:', err.message);
     return false;
@@ -165,21 +177,20 @@ const sendPasswordResetEmail = async ({ name, email, resetUrl }) => {
         Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú, haz clic en el siguiente botón.
         Este enlace expira en 30 minutos.
       </p>
-      <a href="${resetUrl}" style="display:inline-block;background:#4F46E5;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Restablecer contraseña →</a>
+      <a href="${resetUrl}" style="display:inline-block;background:#F59E0B;color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;">Restablecer contraseña →</a>
       <p style="font-size:12px;color:#A8A5C0;line-height:1.6;margin:20px 0 0;">
         Si no solicitaste esto, puedes ignorar este correo — tu contraseña actual seguirá siendo válida.
       </p>
     </div>`);
 
   try {
-    await getResend().emails.send({
+    const result = await getResend().emails.send({
       from:    process.env.EMAIL_FROM || 'Tracely <onboarding@resend.dev>',
       to:      email,
       subject: 'Restablece tu contraseña de Tracely',
       html,
     });
-    console.log(`📧 Email de restablecimiento enviado a ${email}`);
-    return true;
+    return loggedSend(result, `reset password → ${email}`);
   } catch (err) {
     console.error('❌ Error email reset:', err.message);
     return false;
