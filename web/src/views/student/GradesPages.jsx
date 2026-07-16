@@ -185,7 +185,7 @@ export default function GradesView({ estudianteId, semestre, semData, initialCou
                         <>Tu última nota (<strong style={{ color: 'var(--text)' }}>{s.ultima.toFixed(1)}</strong>) está {s.subiendo ? 'por encima' : 'por debajo'} de tu promedio anterior ({s.promedioAnterior.toFixed(1)}).</>
                       )}
                       {s.type === 'asistencia' && (
-                        <>Tu asistencia está en {s.attendance}%, a {s.faltante} puntos del mínimo del 80% — vale la pena cuidarla.</>
+                        <>Tu asistencia está en {s.attendance}%, a {s.faltante} {s.faltante === 1 ? 'punto' : 'puntos'} del mínimo del 80% — vale la pena cuidarla.</>
                       )}
                     </div>
                   </div>
