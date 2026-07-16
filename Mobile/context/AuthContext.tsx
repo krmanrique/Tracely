@@ -8,6 +8,7 @@ interface AuthContextType {
   loggingIn: boolean;
   login: (id: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -38,10 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.login(id, password);
       // getMe() trae el perfil completo (incluye carrera), a diferencia del login
       const me = await authService.getMe();
-      if (me.role !== 'student' && me.role !== 'teacher') {
-        await authService.logout();
-        throw new Error('Este rol todavía no está disponible en la app móvil.');
-      }
       setUser(me);
       return me;
     } finally {
@@ -54,8 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  // Vuelve a traer el perfil del backend — se usa tras editar el nombre en
+  // la pantalla de Perfil, para que el resto de la app (header, avatar,
+  // DataContext) refleje el cambio sin tener que cerrar sesión.
+  const refreshUser = useCallback(async () => {
+    const me = await authService.getMe();
+    setUser(me);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, restoring, loggingIn, login, logout }}>
+    <AuthContext.Provider value={{ user, restoring, loggingIn, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

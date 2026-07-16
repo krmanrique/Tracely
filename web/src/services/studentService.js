@@ -1,5 +1,6 @@
 // services/studentService.js
 import { getToken } from '../context/AuthContext';
+import { getStudentAlerts } from './alertService';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -21,10 +22,10 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
   if (!inscRes.ok) throw new Error('Error al cargar datos del semestre');
 
   const inscripciones = await inscRes.json();
-  const attData       = attRes.ok ? await attRes.json() : { courses: [] };
+  const attData       = attRes.ok ? await attRes.json() : { courses: [], attendanceHistory: [] };
   const attMap        = Object.fromEntries((attData.courses ?? []).map((c) => [c.id, c]));
 
-  const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED'];
+  const colors = ['#1C3992', '#059669', '#D97706', '#DC2626', '#4861B6'];
 
   // Construir courses con estructura completa
   const courses = inscripciones.map((insc, idx) => {
@@ -48,17 +49,9 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
       }),
     }));
 
-    // Calcular promedio general del curso
-    let suma = 0, total = 0;
-    cortesFormateados.forEach((ct) => {
-      const notasCorte = ct.actividades.filter((a) => a.value != null).map((a) => a.value);
-      if (notasCorte.length > 0) {
-        const avgCorte = notasCorte.reduce((a, b) => a + b, 0) / notasCorte.length;
-        suma  += avgCorte * (ct.weight / 100);
-        total += ct.weight / 100;
-      }
-    });
-    const gpaCorso = total > 0 ? Math.round((suma / total) * 10) / 10 : null;
+    // Promedio general del curso: viene ya calculado del backend (gradeMath.js),
+    // única fuente de verdad — evita recalcular con una fórmula distinta aquí.
+    const gpaCorso = insc.nota_definitiva_calculada ?? null;
 
     return {
       id:         asig?.id,
@@ -72,6 +65,8 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
       cortes:     cortesFormateados,
       gpa:        gpaCorso,
       inscripcionId: insc.id,
+      notaMinimaRequerida: insc.nota_minima_requerida ?? null,
+      recuperable:         insc.recuperable ?? true,
     };
   });
 
@@ -81,25 +76,35 @@ export const getStudentDashboard = async (estudianteId, semestre) => {
   const attendanceRate = courses.length > 0
     ? Math.round(courses.reduce((a, c) => a + c.attendance, 0) / courses.length)
     : null;
-  const alertCourses = courses.filter((c) => c.status === 'alert');
-  const riskLevel    = alertCourses.length === 0 ? 'low' : alertCourses.length <= 1 ? 'medium' : 'high';
+  // Notificaciones y nivel de riesgo: se derivan de la misma lista unificada
+  // de alertas (nota + asistencia) que usa "Mis Alertas", para que ambas
+  // vistas siempre coincidan y el riesgo refleje alertas reales, no un
+  // conteo de asistencia inventado aparte.
+  const alertas = await getStudentAlerts(estudianteId, semestre).catch(() => []);
+  const alertasActivas = alertas.filter((a) => a.estado === 'activa');
 
-  // Notificaciones generadas desde alertas de asistencia
-  const notifications = alertCourses.map((c, i) => ({
-    id:       i + 1,
-    type:     c.attendance < 75 ? 'alert' : 'warning',
-    courseId: c.id,
-    message:  `Asistencia ${c.attendance < 75 ? 'crítica' : 'baja'} en ${c.name} (${c.attendance}%)`,
-    time:     'Hoy',
-    read:     false,
-  }));
+  const riskLevel = alertasActivas.some((a) => a.tipo === 'critica')
+    ? 'high'
+    : alertasActivas.length > 0 ? 'medium' : 'low';
 
-  // Historial de asistencia mensual (simulado desde los datos reales)
-  const meses = ['Ago','Sep','Oct','Nov','Dic'];
-  const attendanceHistory = meses.map((month) => ({
-    month,
-    rate: attendanceRate ? Math.min(100, attendanceRate + Math.floor(Math.random() * 10) - 5) : 85,
-  }));
+  const notifications = [...alertasActivas]
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .slice(0, 8)
+    .map((a) => ({
+      id:       a.id,
+      type:     a.tipo === 'critica' ? 'alert' : 'warning',
+      categoria: a.categoria,
+      courseId: a.asignaturaId,
+      message:  a.categoria === 'asistencia'
+        ? `Asistencia ${a.attendance < 70 ? 'crítica' : 'baja'} en ${a.asignaturaNombre} (${a.attendance}%)`
+        : `Tu proyección en ${a.asignaturaNombre} está en riesgo`,
+      time:     a.categoria === 'asistencia' ? 'Hoy' : new Date(a.fecha).toLocaleDateString('es-CO'),
+      read:     false,
+    }));
+
+  // Historial de asistencia mensual real, calculado por el backend a partir
+  // de los registros de Asistencia (no una simulación).
+  const attendanceHistory = attData.attendanceHistory ?? [];
 
   return {
     gpa,

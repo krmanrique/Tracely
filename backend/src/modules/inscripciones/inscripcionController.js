@@ -80,6 +80,21 @@ const inscripcionController = {
       res.status(500).json({ error: 'Error al finalizar inscripción' });
     }
   },
+
+  // DELETE /api/inscripciones/:id — des-inscribir. Calificacion/Asistencia/
+  // Alerta referencian inscripcion_id con ON DELETE CASCADE (migration.sql),
+  // así que el borrado es seguro a nivel de integridad referencial.
+  remove: async (req, res) => {
+    try {
+      const inscripcion = await Inscripcion.findByPk(req.params.id);
+      if (!inscripcion) return res.status(404).json({ error: 'Inscripción no encontrada' });
+      await inscripcion.destroy();
+      res.json({ message: 'Estudiante des-inscrito' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error al des-inscribir' });
+    }
+  },
 };
 
 module.exports = inscripcionController;

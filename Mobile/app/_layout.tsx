@@ -14,7 +14,7 @@ function useProtectedRoute(user: unknown, restoring: boolean) {
   useEffect(() => {
     if (!navState?.key || restoring) return;
 
-    const inAuthScreen = segments[0] === 'login';
+    const inAuthScreen = segments[0] === 'login' || segments[0] === 'forgot-password' || segments[0] === 'reset-password';
     if (!user && !inAuthScreen) {
       router.replace('/login');
     } else if (user && inAuthScreen) {
@@ -31,10 +31,16 @@ function RootLayoutNav() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="teacher/course/[id]/grades"
           options={{ headerShown: true, title: 'Registrar notas', presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="admin/program/[id]"
+          options={{ headerShown: true, title: 'Detalle del programa', presentation: 'modal' }}
         />
       </Stack>
       {restoring && (

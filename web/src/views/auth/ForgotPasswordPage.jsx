@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import unicatolicaLogo from "../../assets/unicatolica-svg.svg";
 import campusBg from "../../assets/campus.png";
+import { requestPasswordReset } from "../../services/authService";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError("");
     if (!email.trim()) {
       setError("Ingresa tu correo institucional.");
@@ -19,7 +22,15 @@ export default function ForgotPasswordPage() {
       setError("Ingresa un correo válido.");
       return;
     }
-    setSent(true);
+    setLoading(true);
+    try {
+      await requestPasswordReset(email.trim());
+      setSent(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -137,16 +148,16 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
 
-              <button className="auth-btn-primary" onClick={handleSubmit}>
+              <button className="auth-btn-primary" onClick={handleSubmit} disabled={loading}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
-                Solicitar enlace
+                {loading ? "Enviando..." : "Solicitar enlace"}
               </button>
 
               <button className="auth-back-btn" onClick={() => navigate("/login")}>
-                ← Volver al login
+                <ArrowLeft size={14} /> Volver al login
               </button>
             </>
           )}

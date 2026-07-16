@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     padding: Space.xl,
     borderWidth: 1,
     borderColor: Colors.border,
-    shadowColor: '#6355A5',
+    shadowColor: Colors.accent,
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },

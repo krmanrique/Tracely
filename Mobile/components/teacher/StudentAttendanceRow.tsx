@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '../ui/Badge';
 import { Colors, Font, Radius, Space } from '../../constants/theme';
 import type { TeacherStudent } from '../../context/DataContext';
@@ -9,11 +10,12 @@ const STATUS_LABEL: Record<TeacherStudent['status'], string> = {
 };
 
 export default function StudentAttendanceRow({
-  student, present, onToggle,
+  student, present, onToggle, onDownloadReport,
 }: {
   student: TeacherStudent;
   present: boolean | undefined;
   onToggle: () => void;
+  onDownloadReport?: () => void;
 }) {
   return (
     <View style={styles.row}>
@@ -27,6 +29,11 @@ export default function StudentAttendanceRow({
         <Text style={styles.sub}>{student.absences} inasistencias · {student.attendance}%</Text>
       </View>
       <Badge variant={student.status as any} label={STATUS_LABEL[student.status]} />
+      {onDownloadReport && (
+        <TouchableOpacity onPress={onDownloadReport} hitSlop={6} style={styles.reportBtn}>
+          <Ionicons name="document-text-outline" size={18} color={Colors.accent} />
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         style={[
           styles.attChip,
@@ -48,6 +55,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { fontSize: Font.xs, fontWeight: '700', color: Colors.text2 },
+  reportBtn: { padding: 4 },
   name: { fontSize: Font.base, fontWeight: '500', color: Colors.text },
   sub: { fontSize: Font.xs, color: Colors.text3 },
 

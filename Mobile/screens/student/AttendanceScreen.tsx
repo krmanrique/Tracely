@@ -1,7 +1,8 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
+import AlertBanner from '../../components/students/AlertBanner';
 import { useData } from '../../context/DataContext';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
 import { attColor } from '../../utils/helpers';
@@ -29,78 +30,94 @@ export default function AttendanceScreen() {
 
   const avg = courses.reduce((s, c) => s + c.attendance, 0) / courses.length;
   const atRisk = courses.filter((c) => c.attendance < 80);
+  const totalFaltas = courses.reduce((s, c) => s + c.absences, 0);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      <Card>
-        <View style={styles.summaryRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>Asistencia promedio</Text>
-            <Text style={[styles.summaryVal, { color: attColor(avg) }]}>{avg.toFixed(0)}%</Text>
-            <Text style={styles.summarySub}>Sobre {courses.length} materias</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: Space.sm }}>
-            <View>
-              <Text style={styles.summaryLabel}>En riesgo</Text>
-              <Text style={[styles.summaryVal, { color: atRisk.length ? Colors.red : Colors.green, fontSize: Font.xxl }]}>
-                {atRisk.length}
-              </Text>
-            </View>
-            <Text style={styles.summarySub}>Mín. requerido 80%</Text>
-          </View>
+      <View style={styles.statsBar}>
+        <View style={styles.statsBarItem}>
+          <Text style={styles.statsBarValue}>{avg.toFixed(0)}%</Text>
+          <Text style={styles.statsBarLabel}>Global</Text>
         </View>
-      </Card>
+        <View style={styles.statsBarItem}>
+          <Text style={styles.statsBarValue}>{atRisk.length}</Text>
+          <Text style={styles.statsBarLabel}>En riesgo</Text>
+        </View>
+        <View style={styles.statsBarItem}>
+          <Text style={styles.statsBarValue}>{totalFaltas}</Text>
+          <Text style={styles.statsBarLabel}>Faltas</Text>
+        </View>
+      </View>
 
-      {courses.map((c) => (
-        <Card key={c.id} style={[styles.courseCard, { borderLeftColor: c.color }]}>
-          <View style={styles.courseTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.courseCode}>{c.code}</Text>
-              <Text style={styles.courseName}>{c.name}</Text>
-              <Text style={styles.courseTeacher}>{c.teacher}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: Space.xs }}>
-              <Text style={[styles.attBig, { color: attColor(c.attendance) }]}>{c.attendance}%</Text>
-              <Badge variant={c.status as any} label={c.status === 'active' ? 'Al día' : '⚠ Alerta'} />
-            </View>
-          </View>
+      <AlertBanner courseNames={atRisk.map((c) => c.name)} />
 
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${c.attendance}%`, backgroundColor: attColor(c.attendance) }]} />
-            <View style={styles.thresholdLine} />
-          </View>
-
-          <View style={styles.progressLabels}>
-            <Text style={styles.progressLabelText}>0%</Text>
-            <Text style={styles.progressLabelText}>80% mín.</Text>
-            <Text style={styles.progressLabelText}>100%</Text>
-          </View>
-
-          {c.attendance < 80 && (
-            <View style={styles.warningRow}>
-              <Text style={styles.warningText}>⚠ Estás por debajo del mínimo requerido en esta materia</Text>
+      {courses.map((c) => {
+        const ok = c.attendance >= 80;
+        return (
+          <Card key={c.id}>
+            <View style={styles.topRow}>
+              <View style={styles.codeBadge}>
+                <Text style={styles.codeBadgeText}>{c.code}</Text>
+              </View>
+              <View style={styles.topRight}>
+                <View style={[styles.statusPill, { backgroundColor: ok ? 'rgba(5,150,105,0.12)' : 'rgba(217,119,6,0.12)' }]}>
+                  <Text style={[styles.statusPillText, { color: ok ? Colors.green : Colors.orange }]}>
+                    {ok ? '✓ Al día' : '⚠ Atención'}
+                  </Text>
+                </View>
+                <Text style={[styles.attBig, { color: attColor(c.attendance) }]}>{c.attendance}%</Text>
+              </View>
             </View>
-          )}
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailVal}>{c.credits}</Text>
-              <Text style={styles.detailLabel}>créditos</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={[styles.detailVal, { color: attColor(c.attendance) }]}>{c.attendance}%</Text>
-              <Text style={styles.detailLabel}>asistencia</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailVal}>{c.attendance >= 80 ? '✓' : '✗'}</Text>
-              <Text style={styles.detailLabel}>estado</Text>
-            </View>
-          </View>
-        </Card>
-      ))}
+            <Text style={styles.courseName}>{c.name}</Text>
 
-      <View style={{ height: Space.xl }} />
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${c.attendance}%`, backgroundColor: attColor(c.attendance) }]} />
+            </View>
+
+            {!ok && (
+              <View style={styles.warningRow}>
+                <Text style={styles.warningText}>⚠ Estás por debajo del mínimo requerido en esta materia</Text>
+              </View>
+            )}
+
+            <View style={styles.boxRow}>
+              <View style={[styles.box, { backgroundColor: Colors.bg3 }]}>
+                <Text style={styles.boxVal}>{c.totalSesiones}</Text>
+                <Text style={styles.boxLabel}>Total</Text>
+              </View>
+              <View style={[styles.box, { backgroundColor: 'rgba(5,150,105,0.1)' }]}>
+                <Text style={[styles.boxVal, { color: Colors.green }]}>{c.totalSesiones - c.absences}</Text>
+                <Text style={styles.boxLabel}>Asistidas</Text>
+              </View>
+              <View style={[styles.box, { backgroundColor: 'rgba(220,38,38,0.08)' }]}>
+                <Text style={[styles.boxVal, { color: Colors.red }]}>{c.absences}</Text>
+                <Text style={styles.boxLabel}>Faltas</Text>
+              </View>
+            </View>
+
+            {c.ultimasSesiones.length > 0 && (
+              <View style={styles.sessionsBlock}>
+                <View style={styles.sessionsHeader}>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.text3} />
+                  <Text style={styles.sessionsLabel}>Últimas sesiones</Text>
+                </View>
+                <View style={styles.sessionsRow}>
+                  {c.ultimasSesiones.map((s, i) => (
+                    <View
+                      key={`${s.fecha}-${i}`}
+                      style={[styles.sessionChip, { backgroundColor: s.presente ? Colors.green : Colors.red }]}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+          </Card>
+        );
+      })}
+
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 }
@@ -112,26 +129,29 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 32, marginBottom: Space.sm },
   emptyText: { fontSize: Font.base, color: Colors.text3 },
 
-  summaryRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  summaryLabel: { fontSize: Font.xs, fontWeight: '700', color: Colors.text3, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
-  summaryVal: { fontSize: 32, fontWeight: '700', letterSpacing: -1 },
-  summarySub: { fontSize: Font.xs, color: Colors.text3 },
-
-  courseCard: { borderLeftWidth: 4 },
-  courseTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.md, marginBottom: Space.md },
-  courseCode: { fontSize: Font.xs, fontWeight: '700', color: Colors.text3, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
-  courseName: { fontSize: Font.md, fontWeight: '700', color: Colors.text, marginBottom: 2 },
-  courseTeacher: { fontSize: Font.sm, color: Colors.text2 },
-  attBig: { fontSize: Font.xxl, fontWeight: '700', letterSpacing: -0.5 },
-
-  progressTrack: { height: 8, backgroundColor: Colors.bg3, borderRadius: 6, overflow: 'hidden', position: 'relative' },
-  progressFill: { height: '100%', borderRadius: 6 },
-  thresholdLine: {
-    position: 'absolute', left: '80%', top: 0, bottom: 0,
-    width: 1.5, backgroundColor: 'rgba(30,27,58,0.2)',
+  statsBar: {
+    flexDirection: 'row', backgroundColor: Colors.accent, borderRadius: Radius.md,
+    paddingVertical: Space.md,
   },
-  progressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  progressLabelText: { fontSize: Font.xs, color: Colors.text3 },
+  statsBarItem: { flex: 1, alignItems: 'center', gap: 2 },
+  statsBarValue: { fontSize: Font.xl, fontWeight: '800', color: Colors.primaryAction, letterSpacing: -0.5 },
+  statsBarLabel: { fontSize: Font.xs, color: Colors.white, fontWeight: '600' },
+
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  codeBadge: {
+    backgroundColor: 'rgba(28,57,146,0.1)', borderRadius: Radius.sm,
+    paddingHorizontal: Space.sm, paddingVertical: 3, alignSelf: 'flex-start',
+  },
+  codeBadgeText: { fontSize: Font.xs, fontWeight: '700', color: Colors.accent },
+  topRight: { alignItems: 'flex-end', gap: 4 },
+  statusPill: { borderRadius: Radius.full, paddingHorizontal: Space.sm, paddingVertical: 3 },
+  statusPillText: { fontSize: Font.xs, fontWeight: '700' },
+  attBig: { fontSize: Font.xxl, fontWeight: '800', letterSpacing: -0.5 },
+
+  courseName: { fontSize: Font.md, fontWeight: '700', color: Colors.text, marginTop: Space.sm, marginBottom: Space.md },
+
+  progressTrack: { height: 8, backgroundColor: Colors.bg3, borderRadius: 6, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 6 },
 
   warningRow: {
     marginTop: Space.sm, padding: Space.sm,
@@ -139,8 +159,14 @@ const styles = StyleSheet.create({
   },
   warningText: { fontSize: Font.xs, color: Colors.red, fontWeight: '500' },
 
-  detailRow: { flexDirection: 'row', marginTop: Space.md, paddingTop: Space.md, borderTopWidth: 1, borderTopColor: Colors.border },
-  detailItem: { flex: 1, alignItems: 'center' },
-  detailVal: { fontSize: Font.lg, fontWeight: '700', color: Colors.text },
-  detailLabel: { fontSize: Font.xs, color: Colors.text3, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  boxRow: { flexDirection: 'row', gap: Space.sm, marginTop: Space.md },
+  box: { flex: 1, borderRadius: Radius.md, paddingVertical: Space.sm, alignItems: 'center', gap: 2 },
+  boxVal: { fontSize: Font.lg, fontWeight: '700', color: Colors.text },
+  boxLabel: { fontSize: Font.xs, color: Colors.text3, fontWeight: '600' },
+
+  sessionsBlock: { marginTop: Space.md },
+  sessionsHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: Space.sm },
+  sessionsLabel: { fontSize: Font.xs, color: Colors.text3, fontWeight: '700' },
+  sessionsRow: { flexDirection: 'row', gap: Space.sm },
+  sessionChip: { flex: 1, height: 8, borderRadius: 4 },
 });

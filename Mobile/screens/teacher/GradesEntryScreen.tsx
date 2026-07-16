@@ -3,19 +3,21 @@ import {
   ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import Card from '../../components/ui/Card';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
 import { useData } from '../../context/DataContext';
 import { toNum } from '../../services/apiTypes';
 import * as calificacionesService from '../../services/calificacionesService';
 
-interface ExistingRow {
-  key: string;
-  estudiante: string;
-  actividad: string;
+interface ActivityGroup {
+  actividadId: string;
+  nombre: string;
   tipo: string;
   porcentaje: number | null;
-  nota: number | null;
+  grades: { key: string; estudiante: string; nota: number | null }[];
 }
 
 export default function GradesEntryScreen() {
@@ -32,12 +34,18 @@ export default function GradesEntryScreen() {
   const [tipo, setTipo] = useState('taller');
   const [peso, setPeso] = useState('');
   const [values, setValues] = useState<Record<string, string>>({}); // por inscripcion_id
-  const [existing, setExisting] = useState<ExistingRow[]>([]);
+  const [groups, setGroups] = useState<ActivityGroup[]>([]);
 
   const [loadingNotas, setLoadingNotas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const [editingPesoId, setEditingPesoId] = useState<string | null>(null);
+  const [pesoEditValue, setPesoEditValue] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<calificacionesService.ImportResult | null>(null);
 
   const cortes = course?.cortes ?? [];
   const activeCorte = cortes.find((c) => c.numero_corte === corteNum) ?? cortes[0] ?? null;
@@ -51,23 +59,27 @@ export default function GradesEntryScreen() {
     setLoadingNotas(true);
     try {
       const inscripciones = await calificacionesService.getByAsignatura(course.id, activeCorte.numero_corte);
-      const rows: ExistingRow[] = [];
+      const byActividad = new Map<string, ActivityGroup>();
       for (const insc of inscripciones) {
         const nombre = insc.estudiante?.usuario?.nombre ?? '—';
         for (const cal of insc.calificaciones ?? []) {
           if (!cal.actividad) continue; // calificación de otro corte
-          rows.push({
-            key: cal.id,
-            estudiante: nombre,
-            actividad: cal.actividad.nombre,
-            tipo: cal.actividad.tipo,
-            porcentaje: toNum(cal.actividad.porcentaje_en_corte),
-            nota: toNum(cal.nota),
-          });
+          if (!byActividad.has(cal.actividad_id)) {
+            byActividad.set(cal.actividad_id, {
+              actividadId: cal.actividad_id,
+              nombre: cal.actividad.nombre,
+              tipo: cal.actividad.tipo,
+              porcentaje: toNum(cal.actividad.porcentaje_en_corte),
+              grades: [],
+            });
+          }
+          byActividad.get(cal.actividad_id)!.grades.push({ key: cal.id, estudiante: nombre, nota: toNum(cal.nota) });
         }
       }
-      rows.sort((a, b) => a.actividad.localeCompare(b.actividad) || a.estudiante.localeCompare(b.estudiante));
-      setExisting(rows);
+      const list = [...byActividad.values()];
+      list.forEach((g) => g.grades.sort((a, b) => a.estudiante.localeCompare(b.estudiante)));
+      list.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      setGroups(list);
     } catch (e: any) {
       setError(e?.message ?? 'No se pudieron cargar las notas');
     } finally {
@@ -145,6 +157,70 @@ export default function GradesEntryScreen() {
     }
   };
 
+  const startEditPeso = (g: ActivityGroup) => {
+    setEditingPesoId(g.actividadId);
+    setPesoEditValue(String(g.porcentaje ?? ''));
+  };
+
+  const savePeso = async (actividadId: string) => {
+    const n = Number(pesoEditValue);
+    if (Number.isNaN(n) || n <= 0 || n > 100) {
+      setError('El peso debe ser un número entre 1 y 100.');
+      return;
+    }
+    try {
+      await calificacionesService.updateActividad(actividadId, n);
+      setEditingPesoId(null);
+      await loadExisting();
+      refresh();
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudo actualizar el peso');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    try {
+      await calificacionesService.deleteActividad(deletingId);
+      setDeletingId(null);
+      await loadExisting();
+      refresh();
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudo eliminar la actividad');
+      setDeletingId(null);
+    }
+  };
+
+  const handleImport = async () => {
+    setError('');
+    setImportResult(null);
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+      ],
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const file = result.assets[0];
+    setImporting(true);
+    try {
+      const res = await calificacionesService.importExcel(course.id, {
+        uri: file.uri,
+        name: file.name,
+        mimeType: file.mimeType,
+      });
+      setImportResult(res);
+      await loadExisting();
+      refresh();
+    } catch (e: any) {
+      setError(e?.message ?? 'No se pudo importar el archivo');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <Text style={styles.courseTitle}>{course.name} · {course.code}</Text>
@@ -163,6 +239,33 @@ export default function GradesEntryScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <Card>
+        <View style={styles.rowBetween}>
+          <Text style={styles.sectionTitle}>Importar desde Excel</Text>
+          <TouchableOpacity style={styles.importBtn} onPress={handleImport} disabled={importing}>
+            {importing ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : (
+              <>
+                <Ionicons name="cloud-upload-outline" size={16} color={Colors.accent} />
+                <Text style={styles.importBtnText}>Elegir archivo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.hint}>Columnas esperadas: ID, Actividad, Nota</Text>
+        {importResult && (
+          <View style={styles.importSummary}>
+            <Text style={styles.importSummaryText}>
+              {importResult.procesadas} nota(s) importadas, {importResult.errores.length} fila(s) con error
+            </Text>
+            {importResult.errores.slice(0, 5).map((e, i) => (
+              <Text key={i} style={styles.importErrorText}>Fila {e.fila}: {e.motivo}</Text>
+            ))}
+          </View>
+        )}
+      </Card>
 
       <Card>
         <Text style={styles.sectionTitle}>Nueva actividad</Text>
@@ -233,22 +336,60 @@ export default function GradesEntryScreen() {
         <Text style={styles.sectionTitle}>Notas registradas — Corte {activeCorte?.numero_corte ?? '—'}</Text>
         {loadingNotas ? (
           <ActivityIndicator color={Colors.accent} style={{ paddingVertical: Space.md }} />
-        ) : existing.length === 0 ? (
+        ) : groups.length === 0 ? (
           <Text style={styles.emptyText}>Sin notas registradas en este corte</Text>
         ) : (
-          existing.map((g) => (
-            <View key={g.key} style={styles.existingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.existingStudent}>{g.estudiante}</Text>
-                <Text style={styles.existingActividad}>
-                  {g.actividad} · {g.tipo}{g.porcentaje != null ? ` · ${g.porcentaje}%` : ''}
-                </Text>
+          groups.map((g) => (
+            <View key={g.actividadId} style={styles.activityGroup}>
+              <View style={styles.activityHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityName}>{g.nombre}</Text>
+                  <Text style={styles.activitySub}>{g.tipo}</Text>
+                </View>
+                {editingPesoId === g.actividadId ? (
+                  <View style={styles.pesoEditRow}>
+                    <TextInput
+                      style={styles.pesoEditInput}
+                      value={pesoEditValue}
+                      onChangeText={setPesoEditValue}
+                      keyboardType="numeric"
+                      autoFocus
+                    />
+                    <TouchableOpacity onPress={() => savePeso(g.actividadId)} hitSlop={6}>
+                      <Ionicons name="checkmark" size={18} color={Colors.green} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setEditingPesoId(null)} hitSlop={6}>
+                      <Ionicons name="close" size={18} color={Colors.text3} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.pesoTag} onPress={() => startEditPeso(g)}>
+                    <Text style={styles.pesoTagText}>{g.porcentaje != null ? `${g.porcentaje}%` : '—'}</Text>
+                    <Ionicons name="pencil" size={12} color={Colors.accent} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setDeletingId(g.actividadId)} hitSlop={6} style={styles.deleteBtn}>
+                  <Ionicons name="trash-outline" size={16} color={Colors.red} />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.existingValor}>{g.nota != null ? g.nota.toFixed(1) : '—'}</Text>
+              {g.grades.map((row) => (
+                <View key={row.key} style={styles.existingRow}>
+                  <Text style={styles.existingStudent}>{row.estudiante}</Text>
+                  <Text style={styles.existingValor}>{row.nota != null ? row.nota.toFixed(1) : '—'}</Text>
+                </View>
+              ))}
             </View>
           ))
         )}
       </Card>
+
+      <ConfirmDialog
+        visible={deletingId != null}
+        title="Eliminar actividad"
+        message="Se eliminará la actividad y todas las notas registradas en ella. Esta acción no se puede deshacer."
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingId(null)}
+      />
 
       <View style={{ height: Space.xl }} />
     </ScrollView>
@@ -260,6 +401,7 @@ const styles = StyleSheet.create({
   content: { padding: Space.lg, gap: Space.md },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, backgroundColor: Colors.bg },
   emptyText: { fontSize: Font.sm, color: Colors.text3, paddingVertical: Space.sm, textAlign: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
   courseTitle: { fontSize: Font.md, fontWeight: '700', color: Colors.text },
 
@@ -268,7 +410,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', paddingVertical: Space.sm,
     backgroundColor: Colors.bg3, borderRadius: Radius.md, borderWidth: 1.5, borderColor: 'transparent',
   },
-  cortePillActive: { backgroundColor: 'rgba(79,70,229,0.08)', borderColor: Colors.accent },
+  cortePillActive: { backgroundColor: 'rgba(28,57,146,0.08)', borderColor: Colors.accent },
   cortePillText: { fontSize: Font.sm, fontWeight: '600', color: Colors.text2 },
   cortePillTextActive: { color: Colors.accent },
   cortePillWeight: { fontSize: Font.xs, color: Colors.text3, marginTop: 2 },
@@ -276,6 +418,13 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: Font.md, fontWeight: '700', color: Colors.text, marginBottom: Space.md },
   errorText: { color: Colors.red, fontSize: Font.sm, marginBottom: Space.sm },
   successText: { color: Colors.green, fontSize: Font.sm, marginBottom: Space.sm },
+
+  importBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.bg3, borderRadius: Radius.md, paddingHorizontal: Space.md, paddingVertical: Space.sm },
+  importBtnText: { fontSize: Font.sm, fontWeight: '600', color: Colors.accent },
+  hint: { fontSize: Font.xs, color: Colors.text3, marginTop: -Space.sm },
+  importSummary: { marginTop: Space.sm, padding: Space.sm, backgroundColor: Colors.bg3, borderRadius: Radius.sm, gap: 2 },
+  importSummaryText: { fontSize: Font.sm, fontWeight: '600', color: Colors.text },
+  importErrorText: { fontSize: Font.xs, color: Colors.red },
 
   field: { gap: Space.xs, marginBottom: Space.sm },
   fieldRow: { flexDirection: 'row', gap: Space.sm },
@@ -301,11 +450,19 @@ const styles = StyleSheet.create({
   },
   saveBtnText: { fontSize: Font.base, fontWeight: '700', color: Colors.white },
 
+  activityGroup: { marginBottom: Space.md, paddingBottom: Space.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  activityHeader: { flexDirection: 'row', alignItems: 'center', gap: Space.sm, marginBottom: Space.xs },
+  activityName: { fontSize: Font.sm, fontWeight: '700', color: Colors.text },
+  activitySub: { fontSize: Font.xs, color: Colors.text3, marginTop: 1 },
+  pesoTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.bg3, borderRadius: Radius.full, paddingHorizontal: Space.sm, paddingVertical: 4 },
+  pesoTagText: { fontSize: Font.xs, fontWeight: '700', color: Colors.text },
+  pesoEditRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pesoEditInput: { width: 44, textAlign: 'center', borderBottomWidth: 1.5, borderBottomColor: Colors.accent, fontSize: Font.sm, color: Colors.text, paddingVertical: 2 },
+  deleteBtn: { padding: 4 },
+
   existingRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: Space.sm,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6,
   },
-  existingStudent: { fontSize: Font.sm, fontWeight: '600', color: Colors.text },
-  existingActividad: { fontSize: Font.xs, color: Colors.text3, marginTop: 2 },
-  existingValor: { fontSize: Font.lg, fontWeight: '700', color: Colors.text },
+  existingStudent: { fontSize: Font.sm, color: Colors.text2 },
+  existingValor: { fontSize: Font.base, fontWeight: '700', color: Colors.text },
 });

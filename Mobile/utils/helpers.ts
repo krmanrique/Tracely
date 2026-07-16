@@ -28,6 +28,8 @@ export interface Corte {
   label: string;
   weight: number; // peso_porcentual del corte
   actividades: Actividad[];
+  notaCorte?: number | null;  // calculado por el backend (gradeMath.js)
+  completo?: boolean;
 }
 
 // Promedio del corte ponderado por porcentaje_en_corte; si las actividades

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth }       from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
@@ -6,10 +6,14 @@ import MainLayout from '../components/layout/MainLayout';
 
 import LoginPage          from '../views/auth/LoginView';
 import ForgotPasswordPage from '../views/auth/ForgotPasswordPage';
+import ResetPasswordPage  from '../views/auth/ResetPasswordPage';
 import StudentDashboard   from '../views/student/DashboardPage';
 import GradesPage         from '../views/student/GradesPages';
 import AttendancePage     from '../views/student/AttendancePage';
+import CurriculumPage     from '../views/student/CurriculumPage';
+import AlertsPage         from '../views/student/AlertsPage';
 import TeacherDashboard   from '../views/teacher/DashboardPage';
+import TeacherCoursesPage from '../views/teacher/TeacherCoursesPage';
 import AdminDashboard     from '../views/admin/AdminDashboard';
 import NotFoundPage       from '../views/shared/NotFoundPage';
 
@@ -47,19 +51,50 @@ function PrivateRoute({ children, allowedRoles }) {
 }
 
 function StudentLayout({ View }) {
-  const { user }              = useAuth();
-  const { semestre, setPage } = useAppContext();
+  const { user }        = useAuth();
+  const { semestre }    = useAppContext();
+  const navigate        = useNavigate();
+  const [searchParams]  = useSearchParams();
+
+  const goTo = (page, courseId) => {
+    const path = `/student/${page}`;
+    navigate(courseId ? `${path}?course=${courseId}` : path);
+  };
+
   return (
     <MainLayout>
-      <View estudianteId={user?.id} semestre={semestre} onNavigate={(p) => setPage(p)} onNotifClick={() => setPage('grades')} />
+      <View
+        estudianteId={user?.id}
+        semestre={semestre}
+        initialCourseId={searchParams.get('course')}
+        onNavigate={goTo}
+        onNotifClick={(courseId, categoria) => goTo(categoria === 'asistencia' ? 'attendance' : 'grades', courseId)}
+      />
     </MainLayout>
   );
 }
 
 function TeacherLayout({ View }) {
-  const { user }    = useAuth();
-  const { semestre } = useAppContext();
-  return <MainLayout><View docenteId={user?.id} semestre={semestre} /></MainLayout>;
+  const { user }        = useAuth();
+  const { semestre }    = useAppContext();
+  const navigate        = useNavigate();
+  const [searchParams]  = useSearchParams();
+
+  const goTo = (page, courseId) => {
+    const path = `/teacher/${page}`;
+    navigate(courseId ? `${path}?course=${courseId}` : path);
+  };
+
+  return (
+    <MainLayout>
+      <View
+        docenteId={user?.id}
+        semestre={semestre}
+        initialCourseId={searchParams.get('course')}
+        onNavigate={goTo}
+      />
+    </MainLayout>
+  );
 }
 
 function AdminLayout({ View }) {
@@ -82,12 +117,16 @@ export default function AppRouter() {
       <Routes>
         <Route path="/login"           element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password"  element={<ResetPasswordPage />} />
         <Route path="/"                element={<RoleRedirect />} />
 
         <Route path="/student/dashboard" element={<PrivateRoute allowedRoles={['student']}><StudentLayout View={StudentDashboard} /></PrivateRoute>} />
         <Route path="/student/grades"    element={<PrivateRoute allowedRoles={['student']}><StudentLayout View={GradesPage} /></PrivateRoute>} />
         <Route path="/student/attendance"element={<PrivateRoute allowedRoles={['student']}><StudentLayout View={AttendancePage} /></PrivateRoute>} />
+        <Route path="/student/curriculum"element={<PrivateRoute allowedRoles={['student']}><StudentLayout View={CurriculumPage} /></PrivateRoute>} />
+        <Route path="/student/alerts"    element={<PrivateRoute allowedRoles={['student']}><StudentLayout View={AlertsPage} /></PrivateRoute>} />
         <Route path="/teacher/dashboard" element={<PrivateRoute allowedRoles={['teacher']}><TeacherLayout View={TeacherDashboard} /></PrivateRoute>} />
+        <Route path="/teacher/courses"   element={<PrivateRoute allowedRoles={['teacher']}><TeacherLayout View={TeacherCoursesPage} /></PrivateRoute>} />
         <Route path="/admin/dashboard"   element={<PrivateRoute allowedRoles={['admin']}><AdminLayout View={AdminDashboard} /></PrivateRoute>} />
         <Route path="*"                  element={<NotFoundPage />} />
       </Routes>

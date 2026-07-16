@@ -11,14 +11,16 @@ export const Colors = {
   border: '#E4E2F1',
   border2: '#D6D3EA',
 
-  accent: '#4F46E5',
+  accent: '#1C3992',
+  accentLight: '#2C4FB8',
+  primaryAction: '#F59E0B',
   red: '#DC2626',
   green: '#059669',
   orange: '#D97706',
   purple: '#7C3AED',
 
-  gradientStart: '#6366F1',
-  gradientEnd: '#8B5CF6',
+  gradientStart: '#1C3992',
+  gradientEnd: '#2C4FB8',
 };
 
 export const Font = {

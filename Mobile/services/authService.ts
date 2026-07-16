@@ -35,3 +35,17 @@ export async function logout(): Promise<void> {
 export async function hasSession(): Promise<boolean> {
   return (await getToken()) != null;
 }
+
+export async function requestPasswordReset(correo: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>('/users/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ correo }),
+  });
+}
+
+export async function resetPassword(token: string, password: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>('/users/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  });
+}

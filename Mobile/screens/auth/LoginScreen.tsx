@@ -3,11 +3,13 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Font, Space, Radius } from '../../constants/theme';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { login, loggingIn } = useAuth();
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
@@ -28,19 +30,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <LinearGradient
-          colors={[Colors.gradientStart, Colors.gradientEnd]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <View style={styles.brand}>
-            <Text style={styles.brandText}>Tracely</Text>
+        <View style={styles.iconOuter}>
+          <View style={styles.iconInner}>
+            <Ionicons name="checkmark" size={34} color={Colors.white} />
           </View>
-          <Text style={styles.heroTitle}>Bienvenido de vuelta</Text>
-          <Text style={styles.heroSub}>Ingresa tus credenciales institucionales</Text>
-        </LinearGradient>
+        </View>
+        <Text style={styles.brandText}>Tracely</Text>
+        <Text style={styles.heroSub}>Consulta tus calificaciones y asistencia</Text>
 
         <View style={styles.form}>
           {error !== '' && (
@@ -50,11 +48,11 @@ export default function LoginScreen() {
           )}
 
           <View style={styles.field}>
-            <Text style={styles.label}>ID institucional</Text>
+            <Text style={styles.label}>Usuario</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: 2021-0342"
-              placeholderTextColor={Colors.text3}
+              placeholder="Ingresa tu código estudiantil"
+              placeholderTextColor="rgba(255,255,255,0.55)"
               autoCapitalize="none"
               autoCorrect={false}
               value={id}
@@ -65,18 +63,18 @@ export default function LoginScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Contraseña</Text>
-            <View style={styles.passwordRow}>
+            <View style={styles.passwordWrap}>
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={[styles.input, styles.passwordInput]}
                 placeholder="Ingresa tu contraseña"
-                placeholderTextColor={Colors.text3}
+                placeholderTextColor="rgba(255,255,255,0.55)"
                 secureTextEntry={!showPass}
                 value={password}
                 onChangeText={(t) => { setPassword(t); setError(''); }}
                 onSubmitEditing={handleLogin}
               />
-              <TouchableOpacity onPress={() => setShowPass((v) => !v)} style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>{showPass ? 'Ocultar' : 'Ver'}</Text>
+              <TouchableOpacity onPress={() => setShowPass((v) => !v)} style={styles.eyeBtn} hitSlop={8}>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="rgba(255,255,255,0.75)" />
               </TouchableOpacity>
             </View>
           </View>
@@ -89,47 +87,66 @@ export default function LoginScreen() {
             {loggingIn ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={styles.submitText}>Iniciar sesión</Text>
+              <Text style={styles.submitText}>Iniciar Sesión</Text>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.forgotBtn} onPress={() => router.push('/forgot-password')}>
+            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
         </View>
+
+        <Text style={styles.footer}>Unicatólica 2026</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, backgroundColor: Colors.bg },
-  hero: { paddingTop: 84, paddingBottom: Space.xl, paddingHorizontal: Space.lg, gap: Space.sm },
-  brand: { marginBottom: Space.md },
-  brandText: { fontSize: Font.xxl, fontWeight: '800', color: Colors.white, letterSpacing: -0.5 },
-  heroTitle: { fontSize: Font.xxl, fontWeight: '700', color: Colors.white },
-  heroSub: { fontSize: Font.base, color: 'rgba(255,255,255,0.85)' },
+  flex: { flex: 1, backgroundColor: Colors.accent },
+  scroll: { flexGrow: 1, backgroundColor: Colors.accent, alignItems: 'center', paddingTop: 72, paddingBottom: Space.lg },
 
-  form: { padding: Space.lg, gap: Space.lg, marginTop: -Space.lg },
+  iconOuter: {
+    width: 88, height: 88, borderRadius: Radius.lg, backgroundColor: Colors.white,
+    alignItems: 'center', justifyContent: 'center', marginBottom: Space.lg,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
+  },
+  iconInner: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primaryAction,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  brandText: { fontSize: Font.xxl, fontWeight: '800', color: Colors.white, letterSpacing: -0.5 },
+  heroSub: { fontSize: Font.base, color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 4 },
+
+  form: { width: '100%', paddingHorizontal: Space.lg, gap: Space.lg, marginTop: Space.xl },
 
   errorBox: {
-    backgroundColor: 'rgba(220,38,38,0.08)', borderWidth: 1, borderColor: 'rgba(220,38,38,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
     borderRadius: Radius.md, padding: Space.md,
   },
-  errorText: { color: Colors.red, fontSize: Font.sm, fontWeight: '500' },
+  errorText: { color: Colors.white, fontSize: Font.sm, fontWeight: '500' },
 
   field: { gap: Space.xs },
-  label: { fontSize: Font.sm, fontWeight: '600', color: Colors.text2 },
+  label: { fontSize: Font.sm, fontWeight: '700', color: Colors.white },
   input: {
-    backgroundColor: Colors.card, borderWidth: 1.5, borderColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
     borderRadius: Radius.md, paddingHorizontal: Space.md, paddingVertical: Space.md,
-    fontSize: Font.base, color: Colors.text,
+    fontSize: Font.base, color: Colors.white,
   },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
-  eyeBtn: { paddingHorizontal: Space.sm },
-  eyeText: { color: Colors.accent, fontWeight: '600', fontSize: Font.sm },
+  passwordWrap: { position: 'relative', justifyContent: 'center' },
+  passwordInput: { paddingRight: 44 },
+  eyeBtn: { position: 'absolute', right: Space.md },
 
   submitBtn: {
-    backgroundColor: Colors.accent, borderRadius: Radius.md, paddingVertical: Space.md,
+    backgroundColor: Colors.primaryAction, borderRadius: Radius.md, paddingVertical: Space.md,
     alignItems: 'center', justifyContent: 'center', marginTop: Space.sm,
-    shadowColor: Colors.accent, shadowOpacity: 0.3, shadowRadius: 10, elevation: 3,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, elevation: 3,
   },
   submitBtnDisabled: { opacity: 0.7 },
   submitText: { color: Colors.white, fontSize: Font.base, fontWeight: '700' },
+
+  forgotBtn: { alignItems: 'center', paddingVertical: Space.sm },
+  forgotText: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: Font.sm },
+
+  footer: { color: 'rgba(255,255,255,0.5)', fontSize: Font.xs, marginTop: Space.xl },
 });

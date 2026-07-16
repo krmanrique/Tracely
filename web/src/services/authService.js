@@ -25,3 +25,25 @@ export const login = async (id, password) => {
 };
 
 export const logout = async () => true;
+
+export const requestPasswordReset = async (correo) => {
+  const res = await fetch(`${API}/users/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ correo }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Error al solicitar el restablecimiento');
+  return data;
+};
+
+export const resetPassword = async (token, password) => {
+  const res = await fetch(`${API}/users/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Error al restablecer la contraseña');
+  return data;
+};

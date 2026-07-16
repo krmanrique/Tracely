@@ -20,7 +20,7 @@ export const getTeacherDashboard = async (docenteUserId, semestre) => {
   if (!dashRes.ok) throw new Error('Error al cargar dashboard');
   const { courses, asistenciaHoy } = await dashRes.json();
 
-  const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#7C3AED'];
+  const colors = ['#1C3992', '#059669', '#D97706', '#DC2626', '#4861B6'];
 
   const coursesFormateados = (courses ?? []).map((c, idx) => ({
     id:       c.id,
@@ -30,14 +30,17 @@ export const getTeacherDashboard = async (docenteUserId, semestre) => {
     enrolled: c.enrolled,
     color:    colors[idx % colors.length],
     cortes:   c.cortes ?? [],
+    umbralAdvertencia: c.umbral_advertencia ?? 3.5,
     students: (c.students ?? []).map((s) => ({
       id:            s.id,
       name:          s.name,
       id_inst:       s.id_inst,
       inscripcionId: s.inscripcion_id,
-      attendance:    85,
-      absences:      0,
-      status:        'active',
+      attendance:    s.attendance ?? 100,
+      absences:      s.absences ?? 0,
+      status:        s.status ?? 'active',
+      notaDefinitiva: s.notaDefinitiva ?? null,
+      recuperable:    s.recuperable ?? true,
     })),
     todayAttendance: (c.students ?? []).map((s) => ({
       studentId:     s.id,

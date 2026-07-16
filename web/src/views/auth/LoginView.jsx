@@ -301,7 +301,7 @@ export default function LoginPage() {
                     className="auth-captcha-char"
                     style={{
                       transform: `rotate(${(Math.random() * 16 - 8).toFixed(1)}deg)`,
-                      color: ["#818CF8", "#34D399", "#F472B6", "#FCD34D", "#60A5FA", "#F87171"][i % 6],
+                      color: ["#FE9300", "#34D399", "#F472B6", "#FCD34D", "#60A5FA", "#F87171"][i % 6],
                     }}
                   >
                     {ch}

@@ -20,6 +20,10 @@ export interface ApiCorte {
   numero_corte: number;
   peso_porcentual: number | string | null;
   actividades?: ApiActividad[];
+  // Calculados por el backend (gradeMath.js) cuando el corte viene de
+  // /calificaciones/estudiante — no siempre presentes (ej. en /teachers/dashboard).
+  nota_corte?: number | string | null;
+  corte_completo?: boolean;
 }
 
 export interface ApiAsignatura {

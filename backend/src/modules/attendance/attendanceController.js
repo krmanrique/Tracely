@@ -1,5 +1,6 @@
 const { Asistencia, Inscripcion, Asignatura, Estudiante, Usuario, Pensum, Docente, Alerta } = require('../../models');
 const { sendAttendanceAlert } = require('../../services/emailService');
+const socketService = require('../../services/socketService');
 
 const attendanceController = {
 
@@ -7,6 +8,9 @@ const attendanceController = {
     try {
       const { estudianteId } = req.params;
       const { semestre }     = req.query;
+
+      if (req.user.rol === 'estudiante' && req.user.id !== estudianteId)
+        return res.status(403).json({ error: 'No autorizado' });
 
       const estudiante = await Estudiante.findOne({ where: { usuario_id: estudianteId } });
       if (!estudiante) return res.json({ courses: [] });
@@ -31,6 +35,13 @@ const attendanceController = {
         const total     = insc.asistencias.length;
         const presentes = insc.asistencias.filter((a) => a.presente).length;
         const pct       = total > 0 ? Math.round((presentes / total) * 100) : 100;
+        // Últimas 5 sesiones registradas (más reciente primero) — para el
+        // indicador visual de asistencia reciente en el detalle de la materia.
+        const ultimasSesiones = [...insc.asistencias]
+          .sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+          .slice(0, 5)
+          .reverse()
+          .map((a) => ({ fecha: a.fecha, presente: a.presente }));
         return {
           id:            insc.asignatura.id,
           name:          insc.asignatura.nombre,
@@ -42,11 +53,30 @@ const attendanceController = {
           status:        pct >= 80 ? 'active' : 'alert',
           total,
           presentes,
+          ultimasSesiones,
           inscripcionId: insc.id,
         };
       });
 
-      res.json({ courses: result });
+      // Historial mensual real: agrupa TODOS los registros de asistencia del
+      // estudiante (todas las materias) por mes calendario (a partir de
+      // Asistencia.fecha), no una simulación aleatoria.
+      const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const porMes = {};
+      inscripciones.forEach((insc) => {
+        insc.asistencias.forEach((a) => {
+          const key = a.fecha.slice(0, 7); // 'YYYY-MM'
+          if (!porMes[key]) porMes[key] = { total: 0, presentes: 0 };
+          porMes[key].total++;
+          if (a.presente) porMes[key].presentes++;
+        });
+      });
+      const attendanceHistory = Object.keys(porMes).sort().map((key) => ({
+        month: MESES[Number(key.slice(5, 7)) - 1] ?? key,
+        rate: Math.round((porMes[key].presentes / porMes[key].total) * 100),
+      }));
+
+      res.json({ courses: result, attendanceHistory });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Error al obtener asistencia' });
@@ -114,11 +144,24 @@ const attendanceController = {
             const presentes = insc.asistencias.filter((a) => a.presente).length;
             const pct       = total > 0 ? Math.round((presentes / total) * 100) : 100;
 
-            if (pct < 80) {
+            // Estado antes de este guardado (excluyendo el registro de hoy)
+            // vs. después — el mismo patrón que usa evaluarAlertaPorNota,
+            // para no depender de si la fila Alerta se creó o no (esa fila
+            // puede no crearse si ya existe una alerta activa por otro
+            // motivo, ej. de nota, dejando al estudiante sin notificación
+            // en tiempo real aunque su asistencia sí haya cruzado el umbral).
+            const asistenciasSinHoy = insc.asistencias.filter((a) => a.fecha !== fecha);
+            const totalAntes    = asistenciasSinHoy.length;
+            const presentesAntes = asistenciasSinHoy.filter((a) => a.presente).length;
+            const pctAntes      = totalAntes > 0 ? Math.round((presentesAntes / totalAntes) * 100) : 100;
+            const tipoAntes     = pctAntes < 70 ? 'critica' : pctAntes < 80 ? 'advertencia' : null;
+            const tipoDespues   = pct < 70 ? 'critica' : pct < 80 ? 'advertencia' : null;
+
+            if (tipoDespues) {
               // Crear o actualizar alerta
               await Alerta.findOrCreate({
                 where: { inscripcion_id, estado: 'activa' },
-                defaults: { tipo: pct < 70 ? 'critica' : 'advertencia', es_recuperable: true },
+                defaults: { tipo: tipoDespues, es_recuperable: true },
               });
 
               // Enviar email
@@ -129,6 +172,19 @@ const attendanceController = {
                 attendancePercent: pct,
                 isRecuperable:     pct >= 70,
               });
+
+              // Notificar en tiempo real solo si recién cruzó el umbral o
+              // empeoró de severidad — no en cada guardado mientras sigue
+              // igual de baja.
+              if (tipoDespues !== tipoAntes) {
+                socketService.emitToStudent(insc.estudiante?.usuario_id, 'alerta:nueva', {
+                  asignaturaId: insc.asignatura_id,
+                  asignaturaNombre: insc.asignatura?.nombre ?? '',
+                  tipo: tipoDespues,
+                  categoria: 'asistencia',
+                  attendance: pct,
+                });
+              }
             }
           } catch (e) {
             console.error('Error en notificación:', e.message);
