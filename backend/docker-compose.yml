@@ -32,7 +32,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASS}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./migration.sql:/docker-entrypoint-initdb.d/01-migration.sql   # solo corre en la primera inicializacion del volumen
+      # docker-entrypoint-initdb.d ejecuta los .sql en orden alfabetico, y
+      # solo la primera vez que el volumen de datos esta vacio.
+      - ./migration.sql:/docker-entrypoint-initdb.d/01-migration.sql
+      - ./seed_data.sql:/docker-entrypoint-initdb.d/02-seed_data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
